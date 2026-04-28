@@ -65,7 +65,7 @@ export default function Onboarding() {
             onboardingCompleted: true
           });
           await refreshProfile();
-          navigate('/home');
+          navigate('/');
         }
       } catch (err) {
         console.error(err);

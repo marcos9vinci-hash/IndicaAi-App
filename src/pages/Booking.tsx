@@ -114,7 +114,7 @@ export default function Booking() {
       }
 
       await refreshProfile();
-      navigate('/home');
+      navigate('/');
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'bookings');
     } finally {
