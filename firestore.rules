@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net (Deny all by default)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Identifica se o documento do usuário existe e tem role admin
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Users ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'phone', 'name', 'inviteCode', 'role', 'tier', 'creditsBalance', 'createdAt', 'referredBy'])
+        && data.uid is string && data.uid.size() > 0
+        && data.phone is string
+        && data.name is string && data.name.size() > 0
+        && data.inviteCode is string && data.inviteCode.size() > 0
+        && data.role in ['user', 'admin']
+        && data.tier in ['Bronze', 'Prata', 'Ouro', 'Diamante']
+        && data.creditsBalance is number
+        && data.createdAt is timestamp; // Changed from request.time to allow check after creation
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn(); 
+      allow list: if isAdmin();
+      
+      allow create: if isSignedIn() 
+        && userId == request.auth.uid
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().role == 'user'
+        && incoming().creditsBalance == 0
+        && incoming().createdAt == request.time
+        && (incoming().referredBy == '' || (incoming().referredBy is string && isValidId(incoming().referredBy)));
+
+      allow update: if (isOwner(userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar'])
+        && (incoming().name is string && incoming().name.size() <= 100)
+        && (incoming().avatar == null || incoming().avatar is string)
+      )) || isAdmin();
+    }
+
+    // --- Transactions ---
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin(); // Em produção, apenas o sistema/admin gera transações para evitar fraude
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Bookings ---
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isAdmin() || (isOwner(resource.data.userId) && incoming().status in ['cancelled', 'pending_approval'] && existing().status in ['pending', 'pending_approval']);
+      allow delete: if isAdmin();
+    }
+
+    // --- Studio Settings ---
+    match /studio_settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Invites ---
+    match /invites/{code} {
+      allow get: if true; // Público para checagem de convite
+      allow update: if isAdmin() || (incoming().diff(existing()).affectedKeys().hasOnly(['usesCount']) && incoming().usesCount == existing().usesCount + 1);
+      allow list, create, delete: if isAdmin();
+    }
+
+    // --- Studio Rules ---
+    match /studio_rules/{ruleId} {
+      allow read: if true; // Público
+      allow write: if isAdmin();
+    }
+
+    // --- Campaigns ---
+    match /campaigns/{campaignId} {
+      allow read: if true; // Público
+      allow write: if isAdmin();
+    }
+
+    // --- Artists ---
+    match /artists/{artistId} {
+      allow read: if true; // Público
+      allow write: if isAdmin();
+    }
+
+    // --- Notifications ---
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isOwner(resource.data.userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow create, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Indica Ai",
+  "description": "Plataforma VIP de indicações para estúdios de tatuagem, com sistema de recompensas em níveis, ranking e agendamentos.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}

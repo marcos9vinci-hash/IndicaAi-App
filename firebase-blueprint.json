@@ -1,0 +1,159 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "System user profile with referral and credit information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "phone": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "inviteCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "tier": { "type": "string", "enum": ["Bronze", "Prata", "Ouro", "Diamante"] },
+        "creditsBalance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "phone", "inviteCode", "role", "tier", "creditsBalance"]
+    },
+    "CreditTransaction": {
+      "title": "Credit Transaction",
+      "description": "Records gain, use, transfer or expiration of credits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["referral", "booking_discount", "transfer_send", "transfer_receive", "expiration", "admin_adjustment"] },
+        "sourceId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type", "createdAt"]
+    },
+    "Booking": {
+      "title": "Tattoo Booking",
+      "description": "Scheduled tattoo appointment",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "size": { "type": "string", "enum": ["Pequena", "Média", "Grande"] },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "priceEstimated": { "type": "number" },
+        "depositPaid": { "type": "number" },
+        "creditsUsed": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "size", "date", "time", "status"]
+    },
+    "Invite": {
+      "title": "Invite Code",
+      "description": "System or user referral codes",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "maxUses": { "type": "integer" },
+        "usesCount": { "type": "integer" },
+        "createdByAdmin": { "type": "boolean" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["code", "createdAt", "active"]
+    },
+    "StudioRule": {
+      "title": "Studio Rule",
+      "description": "Internal rules and policies",
+      "type": "object",
+      "properties": {
+        "order": { "type": "integer" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["order", "title", "content", "active"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Promotional reward campaigns",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "bonusLevel1Percent": { "type": "number" },
+        "bonusLevel2Percent": { "type": "number" },
+        "bonusLevel3Percent": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["title", "startDate", "endDate", "active"]
+    },
+    "Artist": {
+      "title": "Artist",
+      "description": "Studio tattoo artists",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "avatar": { "type": "string" },
+        "active": { "type": "boolean" },
+        "bio": { "type": "string" }
+      },
+      "required": ["name", "active"]
+    },
+    "Notification": {
+      "title": "System Notification",
+      "description": "Engagements alerts for users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["userId", "type", "title", "message", "createdAt", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "CreditTransaction",
+      "description": "Global history of credit movements"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Collection of appointments"
+    },
+    "/invites/{code}": {
+      "schema": "Invite",
+      "description": "Unique invite codes registered in the system"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "/studio_rules/{ruleId}": {
+      "schema": "StudioRule",
+      "description": "Public studio policies"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Active promo campaigns"
+    },
+    "/artists/{artistId}": {
+      "schema": "Artist",
+      "description": "Studio artists information"
+    }
+  }
+}

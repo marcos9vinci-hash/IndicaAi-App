@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Manrope:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "Space Grotesk", sans-serif;
+
+  --color-primary-fixed: #c3f400;
+  --color-primary-container: #c3f400;
+  --color-on-primary-container: #556d00;
+  --color-secondary-container: #7b00cb;
+  --color-surface-container: #201f1f;
+  --color-surface-container-high: #2a2a2a;
+  --color-surface-container-highest: #353534;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #c4c9ac;
+  --color-outline: #8e9379;
+  --color-outline-variant: #444933;
+  --color-tertiary-fixed: #ffe088;
+  --color-tertiary-fixed-dim: #e9c349;
+  
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+@layer base {
+  body {
+    @apply bg-[#131313] text-[#e5e2e1] font-sans;
+  }
+}
+
+.glass-panel {
+  @apply bg-surface-container/60 backdrop-blur-xl border border-white/5;
+}
+
+.neon-glow {
+  box-shadow: 0 0 20px rgba(195, 244, 0, 0.2);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 8px rgba(195, 244, 0, 0.4);
+}
+
+.gold-glow {
+  box-shadow: 0 0 15px rgba(233, 195, 73, 0.3);
+}
+
+@layer base {
+  /* Scrollbar Customization */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #131313;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #353534;
+    border-radius: 10px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c3f40066;
+  }
+
+  /* Custom scrollbar for specific containers if needed */
+  .modern-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #353534 #131313;
+  }
+}
