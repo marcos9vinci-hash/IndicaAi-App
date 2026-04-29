@@ -574,8 +574,9 @@ export default function Admin() {
                   bookings={bookings}
                   settings={settings}
                   onDateSelect={(date) => {
-                    // Opcional: Filtro rápido ou ação ao selecionar data
+                    // Ação ao selecionar data (opcional)
                   }}
+                  onBookingCreated={fetchData}
                 />
                 
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -149,6 +149,15 @@ export interface Booking {
   depositPaid: number;
   creditsUsed: number;
   createdAt: any;
+  // Campos da Agenda Administrativa
+  fotos_referencia?: string[];
+  descricao_servico?: string;
+  estilo?: string;
+  primeira_tatuagem?: boolean;
+  regiao_corpo?: string;
+  observacoes?: string;
+  valor_estimado?: number;
+  valor_sinal?: number;
 }
 
 export interface Invite {
