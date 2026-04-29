@@ -28,7 +28,7 @@ export default function Profile() {
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-lg mx-auto space-y-10">
+      <main className="pt-24 px-6 max-w-7xl mx-auto space-y-10">
         <section className="flex flex-col items-center">
           <div className="relative mb-6">
             <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-surface-container-highest shadow-[0_0_40px_rgba(204,255,0,0.15)] group relative">
@@ -75,63 +75,68 @@ export default function Profile() {
           </div>
         </section>
 
-        {/* Account Menu */}
-        <section className="space-y-4">
-          <h3 className="font-headline text-[10px] text-zinc-500 uppercase tracking-widest font-black">Conta</h3>
-          <div className="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
-            {[
-              { label: 'Editar dados', icon: UserCog, action: () => {} },
-              { label: 'Notificações', icon: Bell, action: () => {} },
-              { label: 'Termos de uso', icon: FileText, action: () => navigate('/terms') },
-              { label: 'Política de privacidade', icon: Shield, action: () => {} },
-              { label: 'Sair da conta', icon: LogOut, action: handleLogout, danger: true },
-            ].map((item, i) => (
-              <button
-                key={i}
-                onClick={item.action}
-                className="flex items-center justify-between w-full p-5 hover:bg-white/5 transition-all group active:bg-white/10"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn("p-2 rounded-xl transition-colors", item.danger ? "bg-red-500/10 text-red-400 group-hover:bg-red-500 group-hover:text-white" : "bg-zinc-900 text-zinc-500 group-hover:text-primary-fixed")}>
-                    <item.icon className="w-5 h-5" />
+        {/* Account Menu & Security Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Account Menu */}
+          <section className="space-y-4">
+            <h3 className="font-headline text-[10px] text-zinc-500 uppercase tracking-widest font-black">Conta</h3>
+            <div className="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+              {[
+                { label: 'Editar dados', icon: UserCog, action: () => {} },
+                { label: 'Notificações', icon: Bell, action: () => {} },
+                { label: 'Termos de uso', icon: FileText, action: () => navigate('/terms') },
+                { label: 'Política de privacidade', icon: Shield, action: () => {} },
+                { label: 'Sair da conta', icon: LogOut, action: handleLogout, danger: true },
+              ].map((item, i) => (
+                <button
+                  key={i}
+                  onClick={item.action}
+                  className="flex items-center justify-between w-full p-5 hover:bg-white/5 transition-all group active:bg-white/10"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn("p-2 rounded-xl transition-colors", item.danger ? "bg-red-500/10 text-red-400 group-hover:bg-red-500 group-hover:text-white" : "bg-zinc-900 text-zinc-500 group-hover:text-primary-fixed")}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <span className={cn("font-sans font-semibold", item.danger ? "text-red-400" : "text-primary")}>{item.label}</span>
                   </div>
-                  <span className={cn("font-sans font-semibold", item.danger ? "text-red-400" : "text-primary")}>{item.label}</span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-zinc-700" />
-              </button>
-            ))}
-          </div>
-        </section>
+                  <ChevronRight className="w-5 h-5 text-zinc-700" />
+                </button>
+              ))}
+            </div>
+          </section>
 
-        {isAdmin && (
-           <section className="space-y-4">
-             <h3 className="font-headline text-[10px] text-primary-fixed uppercase tracking-widest font-black">Admin</h3>
-             <button 
-               onClick={() => navigate('/admin')}
-               className="w-full p-5 glass-panel rounded-2xl flex items-center justify-between border-primary-fixed/20 hover:bg-primary-fixed/5 transition-all group"
-             >
-               <div className="flex items-center gap-4">
-                 <Shield className="w-6 h-6 text-primary-fixed" />
-                 <span className="font-headline font-black uppercase text-primary-fixed">Painel Administrativo</span>
-               </div>
-               <ChevronRight className="w-5 h-5 text-primary-fixed" />
-             </button>
-           </section>
-        )}
+          <div className="space-y-10">
+            {isAdmin && (
+               <section className="space-y-4">
+                 <h3 className="font-headline text-[10px] text-primary-fixed uppercase tracking-widest font-black">Admin</h3>
+                 <button 
+                   onClick={() => navigate('/admin')}
+                   className="w-full p-5 glass-panel rounded-2xl flex items-center justify-between border-primary-fixed/20 hover:bg-primary-fixed/5 transition-all group"
+                 >
+                   <div className="flex items-center gap-4">
+                     <Shield className="w-6 h-6 text-primary-fixed" />
+                     <span className="font-headline font-black uppercase text-primary-fixed">Painel Administrativo</span>
+                   </div>
+                   <ChevronRight className="w-5 h-5 text-primary-fixed" />
+                 </button>
+               </section>
+            )}
 
-        {/* Security Section */}
-        <section className="mb-12">
-          <h3 className="font-headline text-[10px] text-zinc-500 uppercase tracking-widest font-black mb-4">Segurança</h3>
-          <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl space-y-6">
-            <p className="text-zinc-500 text-sm leading-relaxed font-sans">
-              Você poderá solicitar a exclusão definitiva dos seus dados e créditos a qualquer momento. Esta ação é irreversível.
-            </p>
-            <button className="flex items-center justify-center gap-3 w-full py-4 rounded-xl border border-red-500/40 text-red-400 font-headline text-[10px] uppercase tracking-widest font-bold hover:bg-red-500 hover:text-white transition-all active:scale-95">
-              <Trash2 className="w-4 h-4" />
-              Excluir minha conta
-            </button>
+            {/* Security Section */}
+            <section className="mb-12">
+              <h3 className="font-headline text-[10px] text-zinc-500 uppercase tracking-widest font-black mb-4">Segurança</h3>
+              <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl space-y-6">
+                <p className="text-zinc-500 text-sm leading-relaxed font-sans">
+                  Você poderá solicitar a exclusão definitiva dos seus dados e créditos a qualquer momento. Esta ação é irreversível.
+                </p>
+                <button className="flex items-center justify-center gap-3 w-full py-4 rounded-xl border border-red-500/40 text-red-400 font-headline text-[10px] uppercase tracking-widest font-bold hover:bg-red-500 hover:text-white transition-all active:scale-95">
+                  <Trash2 className="w-4 h-4" />
+                  Excluir minha conta
+                </button>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );

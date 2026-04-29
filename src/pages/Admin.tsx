@@ -7,6 +7,9 @@ import { handleFirestoreError } from '../lib/error-handler';
 import { Shield, Users, Calendar, Check, X, PlusCircle, CheckCircle, Settings, Clock, Ban, DollarSign, Edit2, BarChart3, Ticket, ScrollText, Trash2, Save, ToggleLeft, ToggleRight, Plus, Gift } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AdminDashboard from './AdminDashboard';
+import { creditService } from '../lib/creditService';
+import UnifiedCalendar from '../components/admin/UnifiedCalendar';
+import { AdminSettings } from '../components/admin/AdminSettings';
 
 export default function Admin() {
   const { isAdmin } = useAuth();
@@ -26,7 +29,7 @@ export default function Admin() {
   // Rule Edit State
   const [editingRule, setEditingRule] = useState<Partial<StudioRule> | null>(null);
   // Invite Create State
-  const [newInvite, setNewInvite] = useState({ code: '', maxUses: 10, expiresAt: '' });
+  const [newInvite, setNewInvite] = useState({ code: '', maxUses: 10, expiresInDays: '' });
   // Campaign Edit State
   const [editingCampaign, setEditingCampaign] = useState<Partial<Campaign> | null>(null);
   const [adjustAmount, setAdjustAmount] = useState('');
@@ -41,10 +44,16 @@ export default function Admin() {
   const [settings, setSettings] = useState<StudioSettings>({
     workingDays: [1, 2, 3, 4, 5, 6],
     workingHours: { start: '09:00', end: '19:00' },
+    durations: { Pequena: 60, Média: 120, Grande: 240 },
     blockedDates: [],
+    blockedIntervals: [],
     maxSessionsPerDay: 5,
-    adminIds: []
+    adminIds: [],
+    allowIndicatorBooking: true,
+    allowArtistBooking: true
   });
+
+  const [newBlock, setNewBlock] = useState({ date: '', start: '', end: '', label: '' });
 
   useEffect(() => {
     if (isAdmin) {
@@ -93,11 +102,31 @@ export default function Admin() {
 
   const handleUpdateSettings = async () => {
     try {
-      await setDoc(doc(db, 'studio_settings', 'main'), settings);
+      // Ensure durations exists for backward compatibility if fetching old data
+      const finalSettings = {
+        ...settings,
+        durations: settings.durations || { Pequena: 60, Média: 120, Grande: 240 },
+        blockedIntervals: settings.blockedIntervals || [],
+        allowIndicatorBooking: settings.allowIndicatorBooking ?? true,
+        allowArtistBooking: settings.allowArtistBooking ?? true
+      };
+      await setDoc(doc(db, 'studio_settings', 'main'), finalSettings);
       alert('Configurações salvas!');
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleAddBlock = () => {
+    if (!newBlock.date || !newBlock.start || !newBlock.end) return;
+    const updatedBlocks = [...(settings.blockedIntervals || []), newBlock];
+    setSettings({ ...settings, blockedIntervals: updatedBlocks });
+    setNewBlock({ date: '', start: '', end: '', label: '' });
+  };
+
+  const handleRemoveBlock = (index: number) => {
+    const updatedBlocks = settings.blockedIntervals.filter((_, i) => i !== index);
+    setSettings({ ...settings, blockedIntervals: updatedBlocks });
   };
 
   const handleStatusChange = async (booking: Booking, nextStatus: BookingStatus, customData: any = {}) => {
@@ -149,30 +178,17 @@ export default function Admin() {
 
   const handleCompleteTattoo = async (booking: Booking) => {
     try {
-      // Check for active campaign
-      const activeCampaign = campaigns.find(c => {
-        if (!c.active) return false;
-        const now = new Date();
-        const start = c.startDate.toDate ? c.startDate.toDate() : new Date(c.startDate);
-        const end = c.endDate.toDate ? c.endDate.toDate() : new Date(c.endDate);
-        return now >= start && now <= end;
-      });
-
-      const rewardLevels = activeCampaign 
-        ? [activeCampaign.bonusLevel1Percent, activeCampaign.bonusLevel2Percent, activeCampaign.bonusLevel3Percent]
-        : [100, 50, 25];
-
-      // 1. Update Booking
+      // 1. Marcar como concluído
       await handleStatusChange(booking, BookingStatus.COMPLETED);
 
-      // 2. Add Credits to the user who did the tattoo
+      // 2. Dar bônus de 20 créditos (fixo) para QUEM fez a tattoo (recompensa direta)
       const userBonus = 20;
-      const sixMonthsFromNow = new Date();
-      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-
       await updateDoc(doc(db, 'users', booking.userId), {
         creditsBalance: increment(userBonus)
       });
+      
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
 
       await addDoc(collection(db, 'transactions'), {
         userId: booking.userId,
@@ -184,84 +200,15 @@ export default function Admin() {
         expiresAt: sixMonthsFromNow
       });
 
-      // Notify User for Credits
-      await addDoc(collection(db, 'notifications'), {
-        userId: booking.userId,
-        type: NotificationType.CREDIT_RECEIVED,
-        title: `Créditos recebidos! 🎉`,
-        message: `Você recebeu R$ ${userBonus} em créditos pela sua tattoo.`,
-        createdAt: serverTimestamp(),
-        read: false
-      });
+      // 3. Processar bônus multinível para os indicadores (15%, 7%, 3%)
+      // Usamos o preço estimado da tattoo para o cálculo
+      const tattooPrice = booking.priceEstimated || 200; // fallback para 200
+      await creditService.processReferralBonus(booking.id, booking.userId, tattooPrice);
 
-      // 3. Handle 3 levels of referrals
-      let currentUserId = booking.userId;
-
-      for (let i = 0; i < 3; i++) {
-        const userSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', currentUserId)));
-        if (userSnap.empty) break;
-        
-        const userData = userSnap.docs[0].data() as UserProfile;
-        const referrerId = userData.referredBy;
-
-        if (!referrerId) break;
-
-        await updateDoc(doc(db, 'users', referrerId), {
-          creditsBalance: increment(rewardLevels[i])
-        });
-
-        await addDoc(collection(db, 'transactions'), {
-          userId: referrerId,
-          amount: rewardLevels[i],
-          type: TransactionType.REFERRAL,
-          bookingId: booking.id,
-          description: `Bônus de indicação Nível ${i + 1}`,
-          sourceId: booking.userId,
-          createdAt: serverTimestamp(),
-          expiresAt: sixMonthsFromNow
-        });
-
-        // Notify Referrer
-        await addDoc(collection(db, 'notifications'), {
-          userId: referrerId,
-          type: NotificationType.CREDIT_RECEIVED,
-          title: `Bônus de Indicação! 💸`,
-          message: `Você recebeu R$ ${rewardLevels[i]} porque um indicado tatuou!`,
-          createdAt: serverTimestamp(),
-          read: false
-        });
-
-        // Rank up logic for referrer (Level 1 only)
-        if (i === 0) {
-          const qCount = query(collection(db, 'transactions'), where('userId', '==', referrerId), where('type', '==', TransactionType.REFERRAL), where('description', '==', 'Bônus de indicação Nível 1'));
-          const countSnap = await getDocs(qCount);
-          const referralTattooCount = countSnap.size;
-
-          let newTier: UserTier | null = null;
-          if (referralTattooCount >= 10) newTier = UserTier.DIAMANTE;
-          else if (referralTattooCount >= 5) newTier = UserTier.OURO;
-          else if (referralTattooCount >= 2) newTier = UserTier.PRATA;
-
-          const referrerDoc = await getDoc(doc(db, 'users', referrerId));
-          const currentTier = referrerDoc.data()?.tier;
-
-          if (newTier && newTier !== currentTier) {
-            await updateDoc(doc(db, 'users', referrerId), { tier: newTier });
-            await addDoc(collection(db, 'notifications'), {
-              userId: referrerId,
-              type: NotificationType.RANK_UP,
-              title: 'Você subiu de nível! 🔥',
-              message: `Parabéns! Você agora é nível ${newTier}. Aproveite as novas vantagens.`,
-              createdAt: serverTimestamp(),
-              read: false
-            });
-          }
-        }
-        currentUserId = referrerId;
-      }
       fetchData();
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao concluir tattoo:', err);
+      alert('Erro ao processar bônus: ' + (err as any).message);
     }
   };
 
@@ -320,16 +267,23 @@ export default function Admin() {
   const handleCreateInvite = async () => {
     if (!newInvite.code) return;
     try {
+      let expiresAt: any = null;
+      if (newInvite.expiresInDays) {
+        const date = new Date();
+        date.setDate(date.getDate() + parseInt(newInvite.expiresInDays));
+        expiresAt = date;
+      }
+
       await setDoc(doc(db, 'invites', newInvite.code.trim()), {
         code: newInvite.code.trim(),
         createdAt: serverTimestamp(),
-        expiresAt: newInvite.expiresAt ? new Date(newInvite.expiresAt) : null,
+        expiresAt,
         maxUses: newInvite.maxUses,
         usesCount: 0,
         createdByAdmin: true,
         active: true
       });
-      setNewInvite({ code: '', maxUses: 10, expiresAt: '' });
+      setNewInvite({ code: '', maxUses: 10, expiresInDays: '' });
       fetchData();
     } catch (err) {
       console.error(err);
@@ -387,7 +341,7 @@ export default function Admin() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
           {[
             { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
@@ -421,14 +375,15 @@ export default function Admin() {
                 users={users} 
                 bookings={bookings} 
                 transactions={transactions} 
+                invites={invites}
               />
             )}
 
             {activeTab === 'invites' && (
               <div className="space-y-6">
-                 <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-4">
+                  <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-4">
                     <h3 className="font-headline text-sm uppercase tracking-widest text-primary-fixed">Novo Convite Administrativo</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                        <input 
                          type="text" 
                          placeholder="CÓDIGO (ex: VIP2024)" 
@@ -438,19 +393,26 @@ export default function Admin() {
                        />
                        <input 
                          type="number" 
-                         placeholder="LIMITE USOS" 
+                         placeholder="MAX USOS" 
                          className="bg-black/50 border border-white/10 rounded-xl p-4 text-sm font-headline"
                          value={newInvite.maxUses}
                          onChange={e => setNewInvite({...newInvite, maxUses: parseInt(e.target.value)})}
                        />
+                       <input 
+                         type="number" 
+                         placeholder="VALIDADE (DIAS)" 
+                         className="bg-black/50 border border-white/10 rounded-xl p-4 text-sm font-headline"
+                         value={newInvite.expiresInDays}
+                         onChange={e => setNewInvite({...newInvite, expiresInDays: e.target.value})}
+                       />
                        <button 
                         onClick={handleCreateInvite}
-                        className="bg-primary-fixed text-black rounded-xl font-headline font-black uppercase tracking-widest text-[10px]"
+                        className="bg-primary-fixed text-black rounded-xl font-headline font-black uppercase tracking-widest text-[10px] h-full"
                        >
                          Gerar Convite
                        </button>
                     </div>
-                 </div>
+                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {invites.map(invite => (
@@ -607,188 +569,141 @@ export default function Admin() {
               </div>
             )}
             {activeTab === 'bookings' && (
-              bookings.map(b => (
-                <div key={b.id} className="glass-panel p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-headline text-sm font-black text-white uppercase tracking-wider">Tattoo {b.size}</h3>
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" /> {b.date} • {b.time}
-                      </p>
-                    </div>
-                    <span className={cn(
-                      "text-[9px] font-headline uppercase tracking-tighter px-2.5 py-1 rounded-full border font-black",
-                      getStatusColor(b.status)
-                    )}>
-                      {b.status.replace('_', ' ')}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-[10px] uppercase font-headline tracking-widest font-black">
-                     <div className="bg-white/[0.03] p-3 rounded-xl border border-white/5">
-                        <p className="text-zinc-600 mb-1">Estimado</p>
-                        <p className="text-white">R$ {b.priceEstimated}</p>
-                     </div>
-                     <div className="bg-white/[0.03] p-3 rounded-xl border border-white/5">
-                        <p className="text-zinc-600 mb-1">Sinal Pago</p>
-                        <p className={b.depositPaid > 0 ? "text-primary-fixed" : "text-red-400"}>R$ {b.depositPaid}</p>
-                     </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
-                    {b.status === BookingStatus.PENDING_APPROVAL && (
-                      <>
-                        <button 
-                          onClick={() => handleStatusChange(b, BookingStatus.APPROVED)}
-                          className="flex-1 bg-blue-600/20 text-blue-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-blue-600/30 hover:bg-blue-600/30 font-black"
-                        >
-                          Aprovar
-                        </button>
-                        <button 
-                          onClick={() => handleStatusChange(b, BookingStatus.REJECTED)}
-                          className="flex-1 bg-red-600/20 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-red-600/30 hover:bg-red-600/30 font-black"
-                        >
-                          Recusar
-                        </button>
-                      </>
-                    )}
-
-                    {b.status === BookingStatus.APPROVED && (
-                      <button 
-                        onClick={() => handleStatusChange(b, BookingStatus.DEPOSIT_PAID, { depositPaid: 80 })}
-                        className="flex-1 bg-primary-fixed/20 text-primary-fixed text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-primary-fixed/30 hover:bg-primary-fixed/30 font-black"
-                      >
-                        Confirmar Sinal (R$80)
-                      </button>
-                    )}
-
-                    {(b.status === BookingStatus.DEPOSIT_PAID || b.status === BookingStatus.RESCHEDULED) && (
-                      <button 
-                        onClick={() => handleCompleteTattoo(b)}
-                        className="flex-1 bg-primary-fixed text-black text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:opacity-90 font-black"
-                      >
-                        Concluir Tattoo
-                      </button>
-                    )}
-
-                    {b.status !== BookingStatus.COMPLETED && b.status !== BookingStatus.REJECTED && (
-                      <div className="flex gap-2 w-full mt-2">
-                        <button 
-                          onClick={() => setSelectedBooking(b)}
-                          className="flex-1 bg-zinc-800 text-zinc-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700"
-                        >
-                          Reagendar
-                        </button>
-                        <button 
-                          onClick={() => handleStatusChange(b, BookingStatus.NO_SHOW)}
-                          className="px-4 bg-zinc-800 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700"
-                        >
-                          No-Show
-                        </button>
+              <div className="space-y-6">
+                <UnifiedCalendar 
+                  bookings={bookings}
+                  settings={settings}
+                  onDateSelect={(date) => {
+                    // Opcional: Filtro rápido ou ação ao selecionar data
+                  }}
+                />
+                
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h3 className="col-span-full font-headline text-sm uppercase tracking-widest text-primary-fixed mb-2">Lista de Agendamentos Recentes</h3>
+                  {bookings.slice(0, 10).map(b => (
+                    <div key={b.id} className="glass-panel p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="font-headline text-sm font-black text-white uppercase tracking-wider">Tattoo {b.size}</h3>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" /> {b.date} • {b.time}
+                          </p>
+                        </div>
+                        <span className={cn(
+                          "text-[9px] font-headline uppercase tracking-tighter px-2.5 py-1 rounded-full border font-black",
+                          getStatusColor(b.status)
+                        )}>
+                          {b.status.replace('_', ' ')}
+                        </span>
                       </div>
-                    )}
-                  </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4 text-[10px] uppercase font-headline tracking-widest font-black">
+                        <div className="bg-white/[0.03] p-3 rounded-xl border border-white/5">
+                          <p className="text-zinc-600 mb-1">Estimado</p>
+                          <p className="text-white">R$ {b.priceEstimated}</p>
+                        </div>
+                        <div className="bg-white/[0.03] p-3 rounded-xl border border-white/5">
+                          <p className="text-zinc-600 mb-1">Sinal Pago</p>
+                          <p className={b.depositPaid > 0 ? "text-primary-fixed" : "text-red-400"}>R$ {b.depositPaid}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                        {b.status === BookingStatus.PENDING_APPROVAL && (
+                          <>
+                            <button 
+                              onClick={() => handleStatusChange(b, BookingStatus.APPROVED)}
+                              className="flex-1 bg-blue-600/20 text-blue-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-blue-600/30 hover:bg-blue-600/30 font-black"
+                            >
+                              Aprovar
+                            </button>
+                            <button 
+                              onClick={() => handleStatusChange(b, BookingStatus.REJECTED)}
+                              className="flex-1 bg-red-600/20 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-red-600/30 hover:bg-red-600/30 font-black"
+                            >
+                              Recusar
+                            </button>
+                          </>
+                        )}
+
+                        {b.status === BookingStatus.APPROVED && (
+                          <button 
+                            onClick={() => handleStatusChange(b, BookingStatus.DEPOSIT_PAID, { depositPaid: 80 })}
+                            className="flex-1 bg-primary-fixed/20 text-primary-fixed text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-primary-fixed/30 hover:bg-primary-fixed/30 font-black"
+                          >
+                            Confirmar Sinal (R$80)
+                          </button>
+                        )}
+
+                        {(b.status === BookingStatus.DEPOSIT_PAID || b.status === BookingStatus.RESCHEDULED) && (
+                          <button 
+                            onClick={() => handleCompleteTattoo(b)}
+                            className="flex-1 bg-primary-fixed text-black text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:opacity-90 font-black"
+                          >
+                            Concluir Tattoo
+                          </button>
+                        )}
+
+                        {b.status !== BookingStatus.COMPLETED && b.status !== BookingStatus.REJECTED && (
+                          <div className="flex gap-2 w-full mt-2">
+                            <button 
+                              onClick={() => setSelectedBooking(b)}
+                              className="flex-1 bg-zinc-800 text-zinc-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700 font-black"
+                            >
+                              Reagendar
+                            </button>
+                            <button 
+                              onClick={() => handleStatusChange(b, BookingStatus.NO_SHOW)}
+                              className="px-4 bg-zinc-800 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700 font-black"
+                            >
+                              No-Show
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
+              </div>
             )}
 
             {activeTab === 'users' && (
-              users.map(u => (
-                <div key={u.uid} className="glass-panel p-4 rounded-xl flex items-center justify-between border-white/5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-primary-fixed font-headline">
-                      {u.name?.charAt(0)}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {users.map(u => (
+                  <div key={u.uid} className="glass-panel p-4 rounded-xl flex items-center justify-between border border-white/5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-primary-fixed font-headline">
+                        {u.name?.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-bold text-white">{u.name}</p>
+                        <p className="text-xs text-zinc-500">{u.phone} | {u.tier}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-white">{u.name}</p>
-                      <p className="text-xs text-zinc-500">{u.phone} | {u.tier}</p>
+                    <div className="text-right">
+                      <p className="text-primary-fixed font-headline font-black">R$ {u.creditsBalance}</p>
+                      <button 
+                        onClick={() => setSelectedUser(u)}
+                        className="text-zinc-600 hover:text-white transition-colors"
+                      >
+                        <PlusCircle className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-primary-fixed font-headline font-black">R$ {u.creditsBalance}</p>
-                    <button 
-                      onClick={() => setSelectedUser(u)}
-                      className="text-zinc-600 hover:text-white transition-colors"
-                    >
-                       <PlusCircle className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
 
             {activeTab === 'settings' && (
-              <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-8">
-                <div>
-                  <h3 className="font-headline text-lg text-white mb-4 uppercase flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-primary-fixed" />
-                    Configurar Agenda
-                  </h3>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <label className="text-[10px] uppercase font-headline text-zinc-500 block mb-3 tracking-widest">Dias da Semana</label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, idx) => (
-                          <button
-                            key={day}
-                            onClick={() => {
-                              const newDays = settings.workingDays.includes(idx)
-                                ? settings.workingDays.filter(d => d !== idx)
-                                : [...settings.workingDays, idx];
-                              setSettings({...settings, workingDays: newDays});
-                            }}
-                            className={cn(
-                              "w-10 h-10 rounded-lg font-headline text-[10px] uppercase transition-all flex items-center justify-center border",
-                              settings.workingDays.includes(idx) ? "bg-primary-fixed text-black border-primary-fixed" : "bg-black text-zinc-500 border-white/5"
-                            )}
-                          >
-                            {day}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] uppercase font-headline text-zinc-500 block mb-2 tracking-widest">Início</label>
-                        <input 
-                          type="time" 
-                          value={settings.workingHours.start}
-                          onChange={(e) => setSettings({...settings, workingHours: {...settings.workingHours, start: e.target.value}})}
-                          className="w-full bg-black border border-white/5 rounded-xl h-12 px-4 text-white font-headline"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] uppercase font-headline text-zinc-500 block mb-2 tracking-widest">Fim</label>
-                        <input 
-                          type="time" 
-                          value={settings.workingHours.end}
-                          onChange={(e) => setSettings({...settings, workingHours: {...settings.workingHours, end: e.target.value}})}
-                          className="w-full bg-black border border-white/5 rounded-xl h-12 px-4 text-white font-headline"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] uppercase font-headline text-zinc-500 block mb-2 tracking-widest">Sessões por dia</label>
-                      <input 
-                        type="number" 
-                        value={settings.maxSessionsPerDay}
-                        onChange={(e) => setSettings({...settings, maxSessionsPerDay: parseInt(e.target.value)})}
-                        className="w-full bg-black border border-white/5 rounded-xl h-12 px-4 text-white font-headline"
-                      />
-                    </div>
-
-                    <button 
-                      onClick={handleUpdateSettings}
-                      className="w-full bg-primary-fixed text-black h-14 rounded-xl font-headline font-black uppercase tracking-widest shadow-lg shadow-primary-fixed/20 hover:scale-[0.99] transition-all"
-                    >
-                      Salvar Agenda
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <AdminSettings 
+                settings={settings}
+                setSettings={setSettings}
+                handleUpdateSettings={handleUpdateSettings}
+                newBlock={newBlock}
+                setNewBlock={setNewBlock}
+                handleAddBlock={handleAddBlock}
+                handleRemoveBlock={handleRemoveBlock}
+              />
             )}
           </div>
         )}

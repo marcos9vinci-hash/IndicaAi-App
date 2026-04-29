@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>INK VIP - Agenda</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(32, 31, 31, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(204, 255, 0, 0.3);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #131313;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #353534;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary": "#ffffff",
+                      "secondary-container": "#7b00cb",
+                      "on-tertiary-fixed-variant": "#574500",
+                      "on-secondary-fixed": "#2d004f",
+                      "surface-container-highest": "#353534",
+                      "outline-variant": "#444933",
+                      "on-primary-fixed-variant": "#3c4d00",
+                      "background": "#131313",
+                      "surface-dim": "#131313",
+                      "surface-container": "#201f1f",
+                      "tertiary-fixed-dim": "#e9c349",
+                      "surface-container-high": "#2a2a2a",
+                      "tertiary-fixed": "#ffe088",
+                      "on-tertiary-fixed": "#241a00",
+                      "on-surface": "#e5e2e1",
+                      "tertiary-container": "#ffe088",
+                      "tertiary": "#ffffff",
+                      "on-secondary-fixed-variant": "#6a00b0",
+                      "secondary-fixed": "#f1daff",
+                      "surface-container-low": "#1c1b1b",
+                      "inverse-primary": "#506600",
+                      "on-error-container": "#ffdad6",
+                      "on-error": "#690005",
+                      "on-secondary-container": "#dfb6ff",
+                      "on-primary-fixed": "#161e00",
+                      "error": "#ffb4ab",
+                      "surface-tint": "#abd600",
+                      "secondary": "#dfb7ff",
+                      "primary-container": "#c3f400",
+                      "primary-fixed": "#c3f400",
+                      "inverse-surface": "#e5e2e1",
+                      "on-tertiary": "#3c2f00",
+                      "primary-fixed-dim": "#abd600",
+                      "on-tertiary-container": "#7b6100",
+                      "inverse-on-surface": "#313030",
+                      "surface": "#131313",
+                      "on-surface-variant": "#c4c9ac",
+                      "surface-container-lowest": "#0e0e0e",
+                      "on-primary-container": "#556d00",
+                      "surface-bright": "#393939",
+                      "on-primary": "#283500",
+                      "error-container": "#93000a",
+                      "secondary-fixed-dim": "#dfb7ff",
+                      "surface-variant": "#353534",
+                      "outline": "#8e9379",
+                      "on-secondary": "#4b007e",
+                      "on-background": "#e5e2e1"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "16px",
+                      "xl": "24px",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "80px",
+                      "md": "24px",
+                      "gutter": "24px",
+                      "lg": "48px",
+                      "xs": "4px",
+                      "container-max": "1200px",
+                      "sm": "12px",
+                      "base": "8px"
+              },
+              "fontFamily": {
+                      "body-md": ["Manrope"],
+                      "body-lg": ["Manrope"],
+                      "headline-md": ["Space Grotesk"],
+                      "label-caps": ["Space Grotesk"],
+                      "headline-xl": ["Space Grotesk"],
+                      "headline-lg": ["Space Grotesk"]
+              },
+              "fontSize": {
+                      "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                      "headline-xl": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-32">
+<!-- Top Navigation -->
+<header class="fixed top-0 w-full z-50 bg-zinc-950/80 backdrop-blur-2xl border-b border-white/10">
+<div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container border border-white/10">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Professional profile headshot of a premium tattoo artist with moody lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAA934fma_gAW9iyC2jHhTBRtmSeJKxMGsQ7AH_KLfY5zFGskks7tmWeS9Uh06x_YrY-swOt9vIlUavybyTCIjcOzesyFKh9VYSnr9ysP7RU8744SzRT5-m2is5Q9MnPstK1SJqafHlCdNYred37tPfGTWQ5TGLaC8uDbkzib16IaJPr4vY9CGI_81-5u0q6HAi6BS8QkqQINAbWgYej1ewWCEKvBmPW5-JwiwgLY3TOM_TIXfEzaqr4iUmsiuplK1Sz8_NSYmGwME"/>
+</div>
+<span class="text-xl font-headline-md font-bold tracking-widest text-[#CCFF00] uppercase">INK VIP</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-zinc-400 hover:text-[#CCFF00] transition-colors">notifications</button>
+<button class="bg-[#CCFF00] text-black px-4 py-2 rounded-lg font-label-caps flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    NOVO AGENDAMENTO
+                </button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Header & Calendar Control -->
+<div class="lg:col-span-8 flex flex-col gap-8">
+<section>
+<h1 class="font-headline-xl text-primary leading-tight">Agenda</h1>
+<p class="font-body-lg text-zinc-500">Gerencie seus agendamentos e disponibilidade com precisão VIP.</p>
+</section>
+<!-- View Toggles & Filters -->
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex p-1 bg-surface-container rounded-xl border border-white/5">
+<button class="px-6 py-2 rounded-lg text-black bg-[#CCFF00] font-label-caps transition-all">Semana</button>
+<button class="px-6 py-2 rounded-lg text-zinc-400 hover:text-white font-label-caps transition-all">Mês</button>
+<button class="px-6 py-2 rounded-lg text-zinc-400 hover:text-white font-label-caps transition-all">Lista</button>
+</div>
+<div class="relative min-w-[200px]">
+<div class="flex items-center gap-2 px-4 py-2 bg-surface-container border border-white/5 rounded-lg">
+<div class="w-2 h-2 rounded-full bg-[#CCFF00] shadow-[0_0_8px_rgba(204,255,0,0.5)]"></div>
+<select class="bg-transparent border-none text-on-surface font-body-md focus:ring-0 cursor-pointer w-full appearance-none pr-8">
+<option>Todos os Artistas</option>
+<option>Gabriel 'Ink' Silva</option>
+<option>Marina 'Neo' Costa</option>
+<option>Ricardo 'Old' Santos</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 pointer-events-none text-zinc-500">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Modern Calendar Widget (Weekly View) -->
+<div class="glass-panel p-8 rounded-xl">
+<div class="flex justify-between items-center mb-8">
+<h2 class="font-headline-md text-primary">Outubro, 2023</h2>
+<div class="flex gap-2">
+<button class="material-symbols-outlined p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">chevron_left</button>
+<button class="material-symbols-outlined p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">chevron_right</button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-4">
+<!-- Weekdays -->
+<div class="text-center font-label-caps text-zinc-600">DOM</div>
+<div class="text-center font-label-caps text-zinc-600">SEG</div>
+<div class="text-center font-label-caps text-zinc-600">TER</div>
+<div class="text-center font-label-caps text-zinc-600">QUA</div>
+<div class="text-center font-label-caps text-zinc-600">QUI</div>
+<div class="text-center font-label-caps text-zinc-600 text-[#CCFF00]">SEX</div>
+<div class="text-center font-label-caps text-zinc-600">SAB</div>
+<!-- Dates -->
+<div class="flex flex-col items-center gap-2 p-3 opacity-40 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">15</span>
+<div class="h-1 w-1 bg-zinc-500 rounded-full"></div>
+</div>
+<div class="flex flex-col items-center gap-2 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">16</span>
+<div class="h-1 w-1 bg-[#CCFF00] rounded-full"></div>
+</div>
+<div class="flex flex-col items-center gap-2 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">17</span>
+<div class="flex gap-1">
+<div class="h-1 w-1 bg-[#CCFF00] rounded-full"></div>
+<div class="h-1 w-1 bg-secondary-container rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">18</span>
+<div class="h-1 w-1 bg-[#CCFF00] rounded-full"></div>
+</div>
+<div class="flex flex-col items-center gap-2 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">19</span>
+<div class="h-1 w-1 bg-secondary-container rounded-full"></div>
+</div>
+<!-- Today Active -->
+<div class="flex flex-col items-center gap-2 p-3 bg-surface-container-high border border-[#CCFF00]/30 rounded-xl transition-colors cursor-pointer group shadow-[0_0_20px_rgba(204,255,0,0.1)]">
+<span class="text-xl font-headline-md text-[#CCFF00]">20</span>
+<div class="flex gap-1">
+<div class="h-1 w-1 bg-[#CCFF00] rounded-full"></div>
+<div class="h-1 w-1 bg-secondary-container rounded-full"></div>
+<div class="h-1 w-1 bg-[#CCFF00] rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group">
+<span class="text-xl font-headline-md">21</span>
+<div class="h-1 w-1 bg-zinc-500 rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Appointment List -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-primary">Agendamentos de Hoje</h3>
+<span class="text-[#CCFF00] font-label-caps bg-[#CCFF00]/10 px-2 py-1 rounded">3 SESSÕES</span>
+</div>
+<!-- Scrollable List Container -->
+<div class="flex flex-col gap-4 overflow-y-auto max-h-[530px] pr-2">
+<!-- Appointment Card 1 -->
+<div class="glass-panel p-5 rounded-xl hover:border-[#CCFF00]/30 transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-zinc-800 border border-white/10 overflow-hidden">
+<img alt="Client" class="w-full h-full object-cover" data-alt="Close up portrait of a male client with subtle tattoos on neck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoe6xOjPYsA1QKONRD1nKyOEjBA7WjQ66SoLhuZSkv06pt-lbUVZBVAFqEWoimG5UX3OMfe1aHa0x3KkxBEXUcaEF1SraZWkGFXRUcuSKJbjBlnw61aP3g7sQNOMFC-J3n2_4o398ELQIvJ-XWCf1BXon3cTHOE5bXEiBfviU_ZuleXHBylWlzfvjfxXeQsBHrXq3AyvPKSzFMxgVvlF64GSlrgZSebsxQ467JkVYv_Pf5L2LSgBKDb08xWtLXCrWGMGl_o3ZGqz4"/>
+</div>
+<div>
+<h4 class="font-headline-md text-base text-primary group-hover:text-[#CCFF00] transition-colors">Lucas Ferreira</h4>
+<p class="text-xs text-zinc-500 uppercase tracking-widest">REALISMO SOMBREADO</p>
+</div>
+</div>
+<span class="bg-zinc-800 text-zinc-400 font-label-caps px-2 py-1 rounded text-[10px] border border-white/5">09:00</span>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#CCFF00]">check_circle</span>
+<span class="text-xs font-medium text-zinc-300">Confirmado</span>
+</div>
+<span class="font-headline-md text-lg text-primary">R$ 1.200</span>
+</div>
+</div>
+<!-- Appointment Card 2 -->
+<div class="glass-panel p-5 rounded-xl hover:border-[#CCFF00]/30 transition-all group cursor-pointer relative overflow-hidden">
+<div class="absolute top-0 right-0 w-1 h-full bg-secondary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-zinc-800 border border-white/10 overflow-hidden">
+<img alt="Client" class="w-full h-full object-cover" data-alt="Young stylish woman in a dark studio looking thoughtful" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjFYBXiIZ6N5Yr04JFrKqJYdlEM64pnd8EswWyWdIAKSFVC4r6UO2hxzOGNdeJSmx5WluKp-F3lDiimtJqd0VnDO0VG33Ax_zxf-b-mlq2wsskeHCPOh27K7ArYrkdCLIwcPDPcQUzK4SsaMIQpSToG-sD_SvHkTmPtgYJhFCuZR1ArzpEyupt3bXLlWDtQuKOdwhwyUXpTuOgHPT-kvaBD2AU-sgw2VHSiBU-Km7Vz7KI-xlykFmtNq-yJeia_mbnIYIVvTHtXBs"/>
+</div>
+<div>
+<h4 class="font-headline-md text-base text-primary group-hover:text-[#CCFF00] transition-colors">Bia Oliveira</h4>
+<p class="text-xs text-zinc-500 uppercase tracking-widest">FLASH TATTOO (VIP)</p>
+</div>
+</div>
+<span class="bg-secondary-container/20 text-secondary-fixed font-label-caps px-2 py-1 rounded text-[10px] border border-secondary-container/30">14:30</span>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-zinc-500">pending</span>
+<span class="text-xs font-medium text-zinc-300">Aguardando</span>
+</div>
+<span class="font-headline-md text-lg text-primary">R$ 450</span>
+</div>
+</div>
+<!-- Appointment Card 3 -->
+<div class="glass-panel p-5 rounded-xl hover:border-[#CCFF00]/30 transition-all group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-zinc-800 border border-white/10 overflow-hidden">
+<img alt="Client" class="w-full h-full object-cover" data-alt="Portrait of a modern creative man in a minimalist setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOw4-grK1tNMSy5brFhSiKh7e88_s3vappFCKYGaXV9OyzCG8cPwJuc5vQ7_dEnaCr2-9cAjofk5l1gCVIh8AeF6Afqw2z4IBaCsbIVq_7NOR8g4T01TapeRjzjFxCqMrGH3aJeRmtgrOI5ckhtn_2pIliJmAhYxOnsTEC-63s0K-adD7t8lZZUuestK0fEOeB-ZLoDCfzwilBGSdDIsStrpbtuDi8zyzotriFkAEaLydWW4FXB6koIHo89RYUFuySNi7tJn3BS58"/>
+</div>
+<div>
+<h4 class="font-headline-md text-base text-primary group-hover:text-[#CCFF00] transition-colors">Marcos Viana</h4>
+<p class="text-xs text-zinc-500 uppercase tracking-widest">FECHAMENTO BRAÇO</p>
+</div>
+</div>
+<span class="bg-zinc-800 text-zinc-400 font-label-caps px-2 py-1 rounded text-[10px] border border-white/5">17:00</span>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#CCFF00]">check_circle</span>
+<span class="text-xs font-medium text-zinc-300">Confirmado</span>
+</div>
+<span class="font-headline-md text-lg text-primary">R$ 2.800</span>
+</div>
+</div>
+</div>
+<!-- Dashboard Stats Summary -->
+<div class="bg-primary-container p-6 rounded-xl flex items-center justify-between shadow-[0_10px_30px_rgba(204,255,0,0.15)]">
+<div>
+<p class="font-label-caps text-on-primary-container opacity-70">Faturamento Previsto</p>
+<h3 class="font-headline-lg text-on-primary-container">R$ 4.450</h3>
+</div>
+<div class="h-12 w-12 rounded-full bg-on-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">payments</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50">
+<div class="bg-zinc-950/90 backdrop-blur-xl border-t border-white/5 w-full h-20 flex justify-around items-center px-4 pb-safe rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-wider mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-wider mt-1">Rede</span>
+</a>
+<!-- Active State: Agenda maps to the functional core "Agendar" tab in the shared spec -->
+<a class="flex flex-col items-center justify-center text-[#CCFF00] drop-shadow-[0_0_10px_rgba(204,255,0,0.4)] active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_box</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-wider mt-1">Agendar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-wider mt-1">Ranking</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-wider mt-1">Perfil</span>
+</a>
+</div>
+</nav>
+<!-- Contextual Floating Action Button (Mobile Only) -->
+<button class="md:hidden fixed bottom-24 right-6 w-14 h-14 rounded-2xl bg-[#CCFF00] text-black shadow-2xl flex items-center justify-center z-40 active:scale-95 transition-transform neon-glow-primary">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+</body></html>

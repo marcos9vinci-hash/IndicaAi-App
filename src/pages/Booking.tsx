@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Menu, Info, Radio, Zap, Loader2, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Menu, Info, Radio, Zap, Loader2, AlertCircle, Ban } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, updateDoc, doc, increment, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { TransactionType, BookingStatus, OperationType, StudioSettings, NotificationType } from '../types';
+import { TransactionType, BookingStatus, OperationType, StudioSettings, NotificationType, UserTier, UserRole } from '../types';
 import { handleFirestoreError } from '../lib/error-handler';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  isSameMonth, 
+  isSameDay, 
+  addDays, 
+  isBefore, 
+  startOfDay 
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ChevronLeft } from 'lucide-react';
 
 type Size = 'Pequena' | 'Média' | 'Grande';
 
@@ -40,13 +56,17 @@ export default function Booking() {
     fetchSettings();
   }, []);
 
+  const [existingBookings, setExistingBookings] = useState<any[]>([]);
+
   useEffect(() => {
     if (selectedDate) {
       const fetchBookingsOnDay = async () => {
         const dateStr = selectedDate.toISOString().split('T')[0];
         const q = query(collection(db, 'bookings'), where('date', '==', dateStr));
         const snap = await getDocs(q);
+        const bookings = snap.docs.map(doc => doc.data());
         setBookingsOnDay(snap.size);
+        setExistingBookings(bookings);
       };
       fetchBookingsOnDay();
     }
@@ -122,26 +142,149 @@ export default function Booking() {
     }
   };
 
-  const generateDates = () => {
-    const dates = [];
-    const today = new Date();
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      dates.push(d);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const renderHeader = () => {
+    return (
+      <div className="flex items-center justify-between px-2 mb-4">
+        <h4 className="font-headline text-sm uppercase tracking-widest text-white">
+          {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+        </h4>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors border border-white/5"
+          >
+            <ChevronLeft className="w-4 h-4 text-zinc-400" />
+          </button>
+          <button 
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors border border-white/5"
+          >
+            <ChevronRight className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDays = () => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return (
+      <div className="grid grid-cols-7 mb-2">
+        {days.map((day) => (
+          <div key={day} className="text-center text-[10px] font-headline uppercase tracking-widest text-zinc-600 font-bold">
+            {day}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCells = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart);
+    const endDate = endOfWeek(monthEnd);
+
+    const rows = [];
+    let days = [];
+    let day = startDate;
+    let formattedDate = "";
+
+    while (day <= endDate) {
+      for (let i = 0; i < 7; i++) {
+        formattedDate = format(day, "d");
+        const cloneDay = day;
+        const available = isDayAvailable(cloneDay) && !isBefore(cloneDay, startOfDay(new Date()));
+        const isSelected = selectedDate && isSameDay(cloneDay, selectedDate);
+        const isCurrentMonth = isSameMonth(cloneDay, monthStart);
+
+        days.push(
+          <button
+            key={day.toString()}
+            disabled={!available || !isCurrentMonth}
+            onClick={() => setSelectedDate(cloneDay)}
+            className={cn(
+              "relative h-12 w-full flex flex-col items-center justify-center transition-all duration-300 border-t border-l border-white/5",
+              isSelected 
+                ? "bg-primary-fixed text-black font-black z-10 shadow-[0_0_15px_rgba(204,255,0,0.3)]" 
+                : !isCurrentMonth ? "opacity-0 pointer-events-none" : !available ? "opacity-20 grayscale cursor-not-allowed text-zinc-500" : "text-white/80 hover:bg-primary-fixed/10 hover:text-primary-fixed",
+              i === 6 && "border-r"
+            )}
+          >
+            <span className="text-xs font-headline">{formattedDate}</span>
+            {available && isCurrentMonth && !isSelected && (
+              <div className="absolute bottom-1 w-1 h-1 bg-primary-fixed/40 rounded-full" />
+            )}
+          </button>
+        );
+        day = addDays(day, 1);
+      }
+      rows.push(
+        <div className="grid grid-cols-7" key={day.toString()}>
+          {days}
+        </div>
+      );
+      days = [];
     }
-    return dates;
+    return <div className="border-b border-r border-white/5 rounded-lg overflow-hidden">{rows}</div>;
   };
 
   const generateTimes = () => {
-    if (!settings) return [];
+    if (!settings || !selectedDate || !profile) return [];
+
+    // 0. Check Permissions — usuários comuns = indicadores no sistema IndicaAi
+    const isUser = profile.role === UserRole.USER;
+
+    if (isUser && !settings.allowIndicatorBooking) return [];
+    if (isUser && !settings.allowArtistBooking) return [];
+    
     const times = [];
-    let current = parseInt(settings.workingHours.start.split(':')[0]);
-    const end = parseInt(settings.workingHours.end.split(':')[0]);
-    while (current < end) {
-      times.push(`${current.toString().padStart(2, '0')}:00`);
-      times.push(`${current.toString().padStart(2, '0')}:30`);
-      current++;
+    const [startH, startM] = settings.workingHours.start.split(':').map(Number);
+    const [endH, endM] = settings.workingHours.end.split(':').map(Number);
+    
+    const durationMinutes = settings.durations?.[size] || (size === 'Pequena' ? 60 : size === 'Média' ? 120 : 240);
+    const dateStr = selectedDate.toISOString().split('T')[0];
+
+    let current = new Date();
+    current.setHours(startH, startM, 0, 0);
+    const endTime = new Date();
+    endTime.setHours(endH, endM, 0, 0);
+
+    while (current.getTime() + durationMinutes * 60000 <= endTime.getTime()) {
+      const timeStr = format(current, 'HH:mm');
+      const sessionEnd = new Date(current.getTime() + durationMinutes * 60000);
+
+      // 1. Check against Administrative Blocks
+      const isBlocked = settings.blockedIntervals?.some(block => {
+        if (block.date !== dateStr) return false;
+        const bStart = new Date(`2000-01-01T${block.start}`);
+        const bEnd = new Date(`2000-01-01T${block.end}`);
+        const sStart = new Date(`2000-01-01T${timeStr}`);
+        const sEnd = new Date(`2000-01-01T${format(sessionEnd, 'HH:mm')}`);
+        // Collision if: session starts before block ends AND session ends after block starts
+        return sStart < bEnd && sEnd > bStart;
+      });
+
+      // 2. Check against existing approved bookings
+      const isOccupied = existingBookings.some(b => {
+        if (b.status === BookingStatus.REJECTED || b.status === BookingStatus.NO_SHOW) return false;
+        const bStart = new Date(`2000-01-01T${b.time}`);
+        const bDuration = settings.durations?.[b.size as Size] || (b.size === 'Pequena' ? 60 : b.size === 'Média' ? 120 : 240);
+        const bEnd = new Date(bStart.getTime() + bDuration * 60000);
+        
+        const sStart = new Date(`2000-01-01T${timeStr}`);
+        const sEnd = new Date(`2000-01-01T${format(sessionEnd, 'HH:mm')}`);
+        return sStart < bEnd && sEnd > bStart;
+      });
+
+      if (!isBlocked && !isOccupied) {
+        times.push(timeStr);
+      }
+      
+      current = addDays(current, 0); // maintain same day
+      current.setMinutes(current.getMinutes() + 30); // 30min slot granularity
     }
     return times;
   };
@@ -162,7 +305,10 @@ export default function Booking() {
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-lg mx-auto space-y-10">
+      <main className="pt-24 px-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Left Column: Step 1 & 2 */}
+          <div className="space-y-10">
         {/* Step 1: Size */}
         <section className="space-y-4">
           <div className="flex items-center gap-2">
@@ -201,31 +347,11 @@ export default function Booking() {
             <span className="font-headline text-[10px] text-primary-fixed px-2 py-1 bg-primary-fixed/10 rounded tracking-widest border border-primary-fixed/20 uppercase">Passo 2</span>
             <h3 className="font-headline text-xl">Escolher data</h3>
           </div>
-          <div className="glass-panel p-6 rounded-xl border-white/5">
-            <div className="grid grid-cols-7 gap-2">
-              {generateDates().map((d) => {
-                const available = isDayAvailable(d);
-                const isSelected = selectedDate?.toDateString() === d.toDateString();
-                return (
-                  <button
-                    key={d.toISOString()}
-                    disabled={!available}
-                    onClick={() => setSelectedDate(d)}
-                    className={cn(
-                      "p-2 rounded-xl transition-all h-12 w-full flex flex-col items-center justify-center border",
-                      isSelected 
-                        ? "bg-primary-fixed text-black font-black border-primary-fixed shadow-lg shadow-primary-fixed/20" 
-                        : !available ? "opacity-20 grayscale cursor-not-allowed border-transparent" : "text-white/80 hover:bg-white/5 border-white/5"
-                    )}
-                  >
-                    <span className="text-[8px] font-headline uppercase leading-none mb-1 opacity-60">
-                      {d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}
-                    </span>
-                    <span className="text-xs font-headline font-black">{d.getDate()}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="glass-panel p-4 rounded-xl border-white/5 overflow-hidden">
+            {renderHeader()}
+            {renderDays()}
+            {renderCells()}
+            
             {selectedDate && settings && bookingsOnDay >= settings.maxSessionsPerDay && (
               <div className="mt-4 flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-lg border border-red-400/20">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -234,6 +360,10 @@ export default function Booking() {
             )}
           </div>
         </section>
+          </div>
+
+          {/* Right Column: Step 3 & 4 */}
+          <div className="space-y-10">
 
         {/* Step 3: Time */}
         <section className="space-y-4">
@@ -257,6 +387,17 @@ export default function Booking() {
                 {t}
               </button>
             ))}
+            
+            {settings && selectedDate && generateTimes().length === 0 && (
+              <div className="col-span-3 py-8 glass-panel rounded-xl border-dashed border-white/10 flex flex-col items-center justify-center text-center px-6">
+                <Ban className="w-8 h-8 text-zinc-700 mb-3" />
+                <p className="text-[10px] font-headline text-zinc-500 uppercase tracking-widest leading-relaxed">
+                  {(profile?.role === UserRole.USER && (!settings.allowIndicatorBooking || !settings.allowArtistBooking))
+                   ? "Agendamentos temporariamente desativados pelo administrador."
+                   : "Nenhum horário disponível para esta data e tamanho de tattoo."}
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -297,7 +438,10 @@ export default function Booking() {
           </motion.div>
         </section>
 
-        <section className="pt-4 pb-12">
+          </div>
+        </div>
+
+        <section className="pt-10 pb-12">
            <button 
              onClick={handleConfirm}
              disabled={loading || !selectedDate || !selectedTime || (settings && bookingsOnDay >= settings.maxSessionsPerDay)}

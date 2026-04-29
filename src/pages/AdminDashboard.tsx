@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -14,18 +14,22 @@ import {
   Cell
 } from 'recharts';
 import { 
-  TrendingUp, 
   Users, 
   Calendar, 
-  DollarSign, 
-  CreditCard, 
+  TrendingUp, 
   ArrowUpRight, 
-  ArrowDownRight,
+  CreditCard, 
+  BarChart2, 
+  AlertTriangle,
+  CheckCircle,
   Target,
+  MessageSquare,
+  DollarSign,
   Clock,
-  AlertTriangle
+  Trophy
 } from 'lucide-react';
-import { UserProfile, Booking, CreditTransaction, BookingStatus, TransactionType } from '../types';
+import ReactivationCampaign from "../components/admin/ReactivationCampaign";
+import { UserProfile, Booking, CreditTransaction, BookingStatus, TransactionType, InviteCode } from '../types';
 import { cn } from '../lib/utils';
 import { format, subDays, isSameMonth, isAfter, subMonths } from 'date-fns';
 
@@ -33,9 +37,12 @@ interface AdminDashboardProps {
   users: UserProfile[];
   bookings: Booking[];
   transactions: CreditTransaction[];
+  invites: InviteCode[];
 }
 
-export default function AdminDashboard({ users, bookings, transactions }: AdminDashboardProps) {
+export default function AdminDashboard({ users, bookings, transactions, invites }: AdminDashboardProps) {
+  const [showCampaign, setShowCampaign] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState(7);
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -138,19 +145,61 @@ export default function AdminDashboard({ users, bookings, transactions }: AdminD
       { name: 'Pendente', value: monthlyBookings.filter(b => b.status === BookingStatus.PENDING_APPROVAL).length, color: '#555555' }
     ].filter(d => d.value > 0);
 
+    // 5. Beta Growth (New)
+    const totalInviteRegistrations = invites.reduce((acc, inv) => acc + (inv.usesCount || 0), 0);
+    const conversionRate = users.length > 0 
+      ? Math.round((totalInviteRegistrations / users.length) * 100) 
+      : 0;
+
+    const last7DaysData = Array.from({ length: 7 }).map((_, i) => {
+      const date = subDays(now, 6 - i);
+      const dayName = format(date, 'eee');
+      const count = users.filter(u => {
+        try {
+          const uDate = u.createdAt?.toDate ? u.createdAt.toDate() : new Date(u.createdAt || Date.now());
+          if (isNaN(uDate.getTime())) return false;
+          return format(uDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+        } catch (e) {
+          return false;
+        }
+      }).length;
+      return { day: dayName, count };
+    });
+
+    // 6. Retention/Reactivation Metrics (Complete CRM Logic)
+    const usersToReactivate = users.filter(u => {
+      if (!u.phone || u.role === 'admin') return false;
+      
+      try {
+        const lastActivity = u.lastSeenAt?.toDate 
+          ? u.lastSeenAt.toDate() 
+          : u.createdAt?.toDate 
+            ? u.createdAt.toDate() 
+            : new Date(u.createdAt || Date.now());
+            
+        if (isNaN(lastActivity.getTime())) return false;
+            
+        const daysSinceActivity = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceActivity >= selectedCampaign;
+      } catch (e) {
+        return false;
+      }
+    });
+
     return {
       agenda: { total: monthlyBookings.length, completed, noShows, attendanceRate },
       finance: { totalTattooValue, totalDeposits, creditsGenerated, creditsUsed, avgDiscount },
-      growth: { newUsers, referralUsers, referralTattoos, topReferrers },
+      growth: { newUsers, referralUsers, referralTattoos, topReferrers, totalInviteRegistrations, conversionRate },
       economy: { totalActiveCredits, expiringSoon, expiredMonth },
-      charts: { last6Months, statusData }
+      charts: { last6Months, statusData, last7DaysData },
+      retention: { usersToReactivate }
     };
-  }, [users, bookings, transactions]);
+  }, [users, bookings, transactions, invites, selectedCampaign]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <MetricCard 
           title="Faturamento Total" 
           value={`R$ ${metrics.finance.totalTattooValue}`} 
@@ -172,6 +221,12 @@ export default function AdminDashboard({ users, bookings, transactions }: AdminD
           trend="+5%"
         />
         <MetricCard 
+          title="Conversão Convite" 
+          value={`${metrics.growth.conversionRate}%`} 
+          subtitle={`${metrics.growth.totalInviteRegistrations} via convite`}
+          icon={<Target className="w-4 h-4 text-orange-400" />}
+        />
+        <MetricCard 
           title="Créditos Ativos" 
           value={`R$ ${metrics.economy.totalActiveCredits}`} 
           subtitle="No ecossistema"
@@ -179,7 +234,7 @@ export default function AdminDashboard({ users, bookings, transactions }: AdminD
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Agenda Section */}
         <div className="glass-panel p-6 rounded-2xl border border-white/5">
           <div className="flex justify-between items-center mb-6">
@@ -244,76 +299,80 @@ export default function AdminDashboard({ users, bookings, transactions }: AdminD
           </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Growth & Referrals */}
-        <div className="md:col-span-2 glass-panel p-6 rounded-2xl border border-white/5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* Growth Stats */}
+        <div className="md:col-span-1 glass-panel p-6 rounded-2xl border border-white/5 bg-primary-fixed/[0.02]">
           <h3 className="font-headline text-sm uppercase tracking-widest text-white mb-6 flex items-center gap-2">
-            <ArrowUpRight className="w-4 h-4 text-primary-fixed" />
-            Crescimento & Indicações
+            <Users className="w-4 h-4 text-primary-fixed" />
+            Crescimento Orgânico
           </h3>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-500 font-headline uppercase tracking-wider">Usuários por indicação</span>
-                <span className="text-white font-black">{metrics.growth.referralUsers}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-500 font-headline uppercase tracking-wider">Tattoos por indicação</span>
-                <span className="text-white font-black">{metrics.growth.referralTattoos}</span>
-              </div>
-              <div className="pt-4 border-t border-white/5">
-                <p className="text-[10px] uppercase text-zinc-600 font-headline mb-4">Top 5 Indicadores</p>
-                <div className="space-y-3">
-                  {metrics.growth.topReferrers.map((r, i) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <span className="text-sm text-zinc-400">{r.name}</span>
-                      <span className="text-xs bg-primary-fixed/20 text-primary-fixed px-2 py-0.5 rounded-full font-black">{r.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-zinc-500 font-headline uppercase tracking-wider">Usuários por indicação</span>
+              <span className="text-white font-black">{metrics.growth.referralUsers}</span>
             </div>
-
-            <div className="flex flex-col items-center justify-center">
-               <div className="h-40 w-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={metrics.charts.statusData}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {metrics.charts.statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-               </div>
-               <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
-                  {metrics.charts.statusData.map((d, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-headline">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
-                      {d.name}
-                    </div>
-                  ))}
-               </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-zinc-500 font-headline uppercase tracking-wider">Tattoos por indicação</span>
+              <span className="text-white font-black">{metrics.growth.referralTattoos}</span>
+            </div>
+            <div className="pt-4 border-t border-white/5">
+              <p className="text-[10px] uppercase text-zinc-600 font-headline mb-4">Top 5 Indicadores</p>
+              <div className="space-y-3">
+                {metrics.growth.topReferrers.map((r, i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <span className="text-sm text-zinc-400">{r.name}</span>
+                    <span className="text-xs bg-primary-fixed/20 text-primary-fixed px-2 py-0.5 rounded-full font-black">{r.count}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Status Breakdown (Pie Chart) */}
+        <div className="md:col-span-1 glass-panel p-6 rounded-2xl border border-white/5">
+          <h3 className="font-headline text-sm uppercase tracking-widest text-white mb-6 flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-blue-400" />
+            Status das Sessões
+          </h3>
+          <div className="flex flex-col items-center justify-center">
+             <div className="h-40 w-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={metrics.charts.statusData}
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {metrics.charts.statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+             </div>
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
+                {metrics.charts.statusData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-headline">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+                    {d.name}
+                  </div>
+                ))}
+             </div>
+          </div>
+        </div>
+
         {/* Economy Health */}
-        <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-red-400/[0.02]">
+        <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-red-400/[0.02] flex flex-col h-full">
           <h3 className="font-headline text-sm uppercase tracking-widest text-white mb-6 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-500" />
             Saúde dos Créditos
           </h3>
           
-          <div className="space-y-6">
+          <div className="space-y-6 flex-1">
             <div className="p-4 bg-zinc-900/50 rounded-xl border border-white/5">
               <p className="text-[10px] uppercase text-zinc-500 font-headline mb-1 tracking-widest">Expiram em 30 dias</p>
               <p className="text-lg font-headline text-red-400">R$ {metrics.economy.expiringSoon}</p>
@@ -323,22 +382,122 @@ export default function AdminDashboard({ users, bookings, transactions }: AdminD
               <p className="text-[10px] uppercase text-zinc-500 font-headline mb-1 tracking-widest">Expirados este mês</p>
               <p className="text-lg font-headline text-zinc-400">R$ {metrics.economy.expiredMonth}</p>
             </div>
+          </div>
+        </div>
 
-            <div className="pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 text-primary-fixed" />
-                <p className="text-[10px] uppercase font-headline text-white tracking-widest">Atenção Necessária</p>
+        {/* Top Referrers Ranking */}
+        <div className="md:col-span-1 glass-panel p-6 rounded-2xl border border-white/5 bg-primary-fixed/[0.01]">
+          <h3 className="font-headline text-sm uppercase tracking-widest text-white mb-6 flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-yellow-400" />
+            Ranking de Elite
+          </h3>
+          
+          <div className="space-y-3">
+            {metrics.growth.topReferrers.length > 0 ? (
+              metrics.growth.topReferrers.map((ref, i) => (
+                <div key={ref.id} className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5 hover:bg-white/[0.05] transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-headline text-[10px] ${
+                      i === 0 ? 'bg-yellow-400 text-black' : 
+                      i === 1 ? 'bg-zinc-300 text-black' : 
+                      i === 2 ? 'bg-orange-400 text-black' : 'bg-zinc-800 text-zinc-400'
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="text-xs font-headline text-white group-hover:text-primary-fixed transition-colors truncate max-w-[100px]">{ref.name}</p>
+                      <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-headline">{ref.inviteCode}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-headline text-primary-fixed">{ref.count}</p>
+                    <p className="text-[8px] text-zinc-600 uppercase font-headline">Indicações</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 opacity-20 italic text-xs uppercase tracking-widest">
+                Sem indicações este mês
               </div>
-              <p className="text-[10px] font-sans text-zinc-500 leading-relaxed">
-                {metrics.economy.expiringSoon > 100 
-                  ? "Alto volume de créditos expirando. Considere disparar notificações de urgência."
-                  : "Fluxo de expiração sob controle para este período."
-                }
-              </p>
+            )}
+          </div>
+        </div>
+
+        {/* User Reactivation (Complete CRM) */}
+        <div className="md:col-span-1 glass-panel p-6 rounded-2xl border border-primary-fixed/20 bg-primary-fixed/[0.02]">
+          <h3 className="font-headline text-sm uppercase tracking-widest text-primary-fixed mb-4 flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            CRM de Reativação
+          </h3>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-black/40 p-4 rounded-xl border border-white/5 text-center">
+                <p className="text-3xl font-headline text-white mb-1">
+                  {metrics.retention.usersToReactivate.length}
+                </p>
+                <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-headline">Alvos</p>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <p className="text-[8px] text-zinc-500 uppercase font-headline pl-1">Tempo Inativo</p>
+                <select 
+                  value={selectedCampaign}
+                  onChange={(e) => setSelectedCampaign(Number(e.target.value))}
+                  className="bg-black/60 text-white text-xs p-2 rounded-xl border border-white/10 outline-none font-headline uppercase tracking-widest w-full"
+                >
+                  <option value={7}>7 Dias</option>
+                  <option value={14}>14 Dias</option>
+                  <option value={30}>30 Dias</option>
+                  <option value={60}>60+ Dias</option>
+                </select>
+              </div>
             </div>
+
+            <button 
+              onClick={() => setShowCampaign(true)}
+              disabled={metrics.retention.usersToReactivate.length === 0}
+              className="w-full py-4 bg-primary-fixed text-black font-headline uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Iniciar Campanha
+            </button>
+
+            <p className="text-[9px] font-sans text-zinc-500 leading-tight uppercase tracking-wider text-center px-4">
+              Segmentação inteligente: {selectedCampaign} dias sem acesso 🚀
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Growth Over Time (Daily) */}
+      <div className="glass-panel p-6 rounded-2xl border border-white/5">
+        <h3 className="font-headline text-sm uppercase tracking-widest text-white mb-6 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary-fixed" />
+          Novos Membros (Últimos 7 dias)
+        </h3>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={metrics.charts.last7DaysData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+              <XAxis dataKey="day" stroke="#555" fontSize={10} axisLine={false} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '12px' }}
+                itemStyle={{ color: '#ccff00', fontSize: '12px' }}
+              />
+              <Bar dataKey="count" fill="#ccff00" radius={[4, 4, 0, 0]} barSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {showCampaign && (
+        <ReactivationCampaign 
+          users={metrics.retention.usersToReactivate}
+          onClose={() => setShowCampaign(false)}
+          days={selectedCampaign}
+        />
+      )}
     </div>
   );
 }

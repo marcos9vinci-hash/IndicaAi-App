@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserProfile, OperationType } from '../types';
 import { handleFirestoreError } from '../lib/error-handler';
@@ -42,6 +42,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       const userRef = doc(db, 'users', user.uid);
+      
+      // CRM: Atualizar último acesso silenciosamente
+      updateDoc(userRef, { 
+        lastSeenAt: serverTimestamp() 
+      }).catch(() => {}); // Falha silenciosa se não existir perfil ainda
+
       const unsubscribeProfile = onSnapshot(userRef, 
         (snapshot) => {
           if (snapshot.exists()) {

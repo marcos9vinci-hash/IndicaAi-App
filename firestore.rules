@@ -60,17 +60,16 @@ service cloud.firestore {
         && incoming().createdAt == request.time
         && (incoming().referredBy == '' || (incoming().referredBy is string && isValidId(incoming().referredBy)));
 
-      allow update: if (isOwner(userId) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar'])
-        && (incoming().name is string && incoming().name.size() <= 100)
-        && (incoming().avatar == null || incoming().avatar is string)
-      )) || isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'creditsBalance']))
+        || (!isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['creditsBalance']))
+      ));
     }
 
     // --- Transactions ---
     match /transactions/{transactionId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAdmin(); // Em produção, apenas o sistema/admin gera transações para evitar fraude
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid; 
       allow update, delete: if isAdmin();
     }
 
@@ -117,7 +116,8 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow update: if isOwner(resource.data.userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
-      allow create, delete: if isAdmin();
+      allow create: if isSignedIn(); // Permitir que um usuário notifique outro (ex: em transferências)
+      allow delete: if isAdmin();
     }
   }
 }

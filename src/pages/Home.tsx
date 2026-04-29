@@ -56,6 +56,16 @@ export default function Home() {
     };
   }, [profile?.uid]);
 
+  const handleShareWhatsApp = () => {
+    if (!profile?.inviteCode) return;
+
+    const message = `💉 Entrei no Clube VIP do meu tatuador!\n\nVocê ganha desconto e eu também 😍\n\nEntre pelo meu link VIP:\nhttps://indica-ai-app.netlify.app?ref=${profile.inviteCode}\n\n(Ou use meu código: ${profile.inviteCode})`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <div className="bg-background text-on-surface font-sans min-h-screen pb-32">
       <header className="fixed top-0 z-50 w-full flex justify-between items-center px-6 py-4 bg-zinc-950/80 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(204,255,0,0.05)]">
@@ -84,7 +94,7 @@ export default function Home() {
         </button>
       </header>
 
-      <main className="pt-24 px-6 max-w-lg mx-auto space-y-6">
+      <main className="pt-24 px-6 max-w-7xl mx-auto space-y-6">
         {/* Balance Card */}
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
@@ -104,20 +114,27 @@ export default function Home() {
         </motion.section>
 
         {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-4">
+        <section className="grid grid-cols-3 gap-3">
           <button 
-            onClick={() => navigate('/network')}
+            onClick={handleShareWhatsApp}
             className="bg-primary-fixed text-black h-20 rounded-xl font-headline flex flex-col items-center justify-center gap-1 active:scale-95 transition-all shadow-lg shadow-primary-fixed/10"
           >
-            <UserPlus className="w-6 h-6" />
-            <span className="text-[10px] font-black uppercase tracking-wider">Indicar amigo</span>
+            <UserPlus className="w-5 h-5" />
+            <span className="text-[9px] font-black uppercase tracking-wider">Convidar</span>
+          </button>
+          <button 
+            onClick={() => navigate('/transfer')}
+            className="bg-zinc-900 border border-white/10 text-primary-fixed h-20 rounded-xl font-headline flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
+          >
+            <Gift className="w-5 h-5" />
+            <span className="text-[9px] font-black uppercase tracking-wider">Presentear</span>
           </button>
           <button 
             onClick={() => navigate('/booking')}
             className="bg-zinc-900 border border-white/10 text-primary-fixed h-20 rounded-xl font-headline flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
           >
-            <Calendar className="w-6 h-6" />
-            <span className="text-[10px] font-black uppercase tracking-wider">Agendar tattoo</span>
+            <Calendar className="w-5 h-5" />
+            <span className="text-[9px] font-black uppercase tracking-wider">Agendar</span>
           </button>
         </section>
 

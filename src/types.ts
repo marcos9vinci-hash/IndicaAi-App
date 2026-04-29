@@ -21,6 +21,7 @@ export interface UserProfile {
   tier: UserTier;
   creditsBalance: number;
   createdAt: any;
+  lastSeenAt?: any;
   onboardingCompleted?: boolean;
 }
 
@@ -77,9 +78,22 @@ export enum BookingStatus {
 export interface StudioSettings {
   workingDays: number[]; // 0-6 (Sunday-Saturday)
   workingHours: { start: string; end: string };
+  durations: {
+    Pequena: number; // in minutes
+    Média: number;
+    Grande: number;
+  };
   blockedDates: string[]; // YYYY-MM-DD
+  blockedIntervals: {
+    date: string;
+    start: string;
+    end: string;
+    label?: string;
+  }[];
   maxSessionsPerDay: number;
   adminIds: string[];
+  allowIndicatorBooking: boolean;
+  allowArtistBooking: boolean;
 }
 
 export interface StudioRule {

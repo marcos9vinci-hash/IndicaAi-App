@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
@@ -14,7 +14,9 @@ import Admin from './pages/Admin';
 import Notifications from './pages/Notifications';
 import HowItWorks from './pages/HowItWorks';
 import Onboarding from './pages/Onboarding';
+import Transfer from './pages/Transfer';
 import BottomNav from './components/layout/BottomNav';
+import TestCRM from './pages/TestCRM';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading, profile } = useAuth();
@@ -32,6 +34,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 export default function App() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const refCode = params.get('ref');
+
+    if (refCode) {
+      localStorage.setItem('inviteCode', refCode);
+      console.log('Código de convite detectado:', refCode);
+    }
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
@@ -50,6 +62,8 @@ export default function App() {
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/como-funciona" element={<HowItWorks />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+          <Route path="/transfer" element={<ProtectedRoute><Transfer /></ProtectedRoute>} />
+          <Route path="/test-crm" element={<TestCRM />} />
         </Routes>
       </AuthProvider>
     </Router>

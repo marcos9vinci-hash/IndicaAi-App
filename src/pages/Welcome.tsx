@@ -8,10 +8,24 @@ import { UserRole, UserTier, UserProfile, OperationType, NotificationType } from
 import { handleFirestoreError } from '../lib/error-handler';
 
 export default function Welcome() {
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState(() => {
+    return localStorage.getItem('inviteCode') || '';
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      const cleanRef = ref.toUpperCase().trim();
+      setInviteCode(cleanRef);
+      localStorage.setItem('inviteCode', cleanRef);
+      // Limpa a URL para ficar limpa
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleEnter = async () => {
     if (!inviteCode) {
@@ -102,6 +116,7 @@ export default function Welcome() {
         }
       }
 
+      localStorage.removeItem('inviteCode');
       navigate('/terms');
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'users/profile');
