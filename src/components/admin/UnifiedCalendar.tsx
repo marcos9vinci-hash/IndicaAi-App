@@ -13,6 +13,7 @@ interface UnifiedCalendarProps {
   settings: StudioSettings;
   onDateSelect?: (date: Date) => void;
   onBookingCreated?: () => void;
+  onEditBooking?: (booking: Booking) => void;
 }
 
 interface QuickBookingForm {
@@ -23,7 +24,7 @@ interface QuickBookingForm {
   priceEstimated: number;
 }
 
-export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBookingCreated }: UnifiedCalendarProps) {
+export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBookingCreated, onEditBooking }: UnifiedCalendarProps) {
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   
@@ -208,13 +209,13 @@ export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBo
               </div>
               {weekDays.map(day => {
                 const dayStr = format(day, 'yyyy-MM-dd');
-                const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+                const hourPrefix = `${hour.toString().padStart(2, '0')}:`;
                 const blocked = isBlockedDay(day);
                 const specificBlock = settings.blockedIntervals?.find(b =>
-                  b.date === dayStr && hourStr >= b.start && hourStr < b.end
+                  b.date === dayStr && b.start.startsWith(hourPrefix)
                 );
                 const isBlocked = blocked || !!specificBlock;
-                const booking = bookings.find(b => b.date === dayStr && b.time === hourStr);
+                const booking = bookings.find(b => b.date === dayStr && b.time.startsWith(hourPrefix));
 
                 return (
                   <div
@@ -236,7 +237,7 @@ export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBo
                         onClick={(e) => { e.stopPropagation(); setSelectedBookingDetails(booking); }}
                       >
                         <p className="text-[8px] font-black text-primary-fixed uppercase truncate">{booking.userName}</p>
-                        <p className="text-[7px] text-zinc-500 uppercase">{booking.size}</p>
+                        <p className="text-[7px] text-zinc-500 uppercase">{booking.time} · {booking.size}</p>
                       </div>
                     )}
                     {!isBlocked && !booking && (
@@ -276,15 +277,15 @@ export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBo
           </div>
           <div className="p-4 space-y-2">
             {hours.map(hour => {
-              const hourStr = `${hour.toString().padStart(2, '0')}:00`;
-              const booking = dayBookings.find(b => b.time === hourStr);
+              const hourPrefix = `${hour.toString().padStart(2, '0')}:`;
+              const booking = dayBookings.find(b => b.time.startsWith(hourPrefix));
               const specificBlock = settings.blockedIntervals?.find(b =>
-                b.date === dayStr && hourStr >= b.start && hourStr < b.end
+                b.date === dayStr && b.start.startsWith(hourPrefix)
               );
               const isBlockedHour = isDayOff || !!specificBlock;
               const outsideWorkHours =
                 settings.workingHours &&
-                (hourStr < settings.workingHours.start || hourStr >= settings.workingHours.end);
+                (hourPrefix < settings.workingHours.start.substring(0, 3) || hourPrefix >= settings.workingHours.end.substring(0, 3));
 
               return (
                 <div
@@ -301,13 +302,13 @@ export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBo
                       : 'bg-black/20 border-white/5 hover:border-primary-fixed/30 hover:bg-primary-fixed/5 cursor-pointer p-4'
                   )}
                 >
-                  <span className="w-12 text-[10px] text-zinc-500 font-headline shrink-0">{hourStr}</span>
+                  <span className="w-12 text-[10px] text-zinc-500 font-headline shrink-0">{hourPrefix}00</span>
                   <div className="flex-1">
                     {booking ? (
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => setSelectedBookingDetails(booking)}>
                         <div>
                           <p className="text-xs font-black text-white uppercase tracking-widest">{booking.userName}</p>
-                          <p className="text-[10px] text-zinc-500 uppercase">{booking.size} · R$ {booking.priceEstimated}</p>
+                          <p className="text-[10px] text-zinc-500 uppercase">{booking.time} · {booking.size} · R$ {booking.priceEstimated}</p>
                         </div>
                         <span className="text-[8px] bg-primary-fixed text-black px-2 py-1 rounded font-black uppercase tracking-tighter">
                           {booking.status.replace('_', ' ')}
@@ -394,7 +395,9 @@ export default function UnifiedCalendar({ bookings, settings, onDateSelect, onBo
         />
         <DetalhesAgendamentoModal
           agendamento={selectedBookingDetails}
+          settings={settings}
           onClose={() => setSelectedBookingDetails(null)}
+          onEdit={onEditBooking}
           onStatusChange={() => {
             onBookingCreated?.(); // Refresh view
           }}

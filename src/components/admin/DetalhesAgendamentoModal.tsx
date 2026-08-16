@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, FileText, Calendar, Clock, DollarSign, Palette, Trash2, Send, Settings, CheckCircle2, Loader2, AlertTriangle, List } from 'lucide-react';
 import { db } from '../../lib/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
-import { Booking, BookingStatus } from '../../types';
+import { Booking, BookingStatus, StudioSettings } from '../../types';
 
 interface DetalhesAgendamentoModalProps {
   agendamento: Booking | null;
+  settings?: StudioSettings;
   onClose: () => void;
   onEdit?: (agendamento: Booking) => void;
   onStatusChange?: () => void; // Trigger to refresh data
@@ -35,13 +36,14 @@ const statusOptions = [
 ];
 
 const MESSAGE_TYPES = [
-  { key: 'confirmacaoMessage', label: '✅ Confirmação' },
-  { key: 'reminderMessage', label: '🔔 Lembrete' },
-  { key: 'followUpMessage', label: '💬 Follow-up' }
+  { key: 'confirmacao', label: '✅ Confirmação' },
+  { key: 'lembrete', label: '🔔 Lembrete' },
+  { key: 'followup', label: '💬 Follow-up' }
 ];
 
 export default function DetalhesAgendamentoModal({
   agendamento,
+  settings,
   onClose,
   onEdit,
   onStatusChange
@@ -49,6 +51,29 @@ export default function DetalhesAgendamentoModal({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showMsgSelector, setShowMsgSelector] = useState(false);
+  const [clientPhone, setClientPhone] = useState<string | null>(agendamento?.userPhone || null);
+
+  useEffect(() => {
+    if (agendamento) {
+      setClientPhone(agendamento.userPhone || null);
+
+      // Se não tiver o telefone no agendamento, tenta buscar no cadastro do usuário
+      if (!agendamento.userPhone && agendamento.userId) {
+        const fetchPhone = async () => {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', agendamento.userId));
+            if (userSnap.exists()) {
+              const phone = userSnap.data().phone;
+              if (phone) setClientPhone(phone);
+            }
+          } catch (err) {
+            console.error("Erro ao buscar telefone do cliente:", err);
+          }
+        };
+        fetchPhone();
+      }
+    }
+  }, [agendamento]);
 
   if (!agendamento) return null;
 
@@ -91,27 +116,35 @@ export default function DetalhesAgendamentoModal({
   };
 
   const handleSendWhatsApp = (msgKey: string) => {
-    // We would need the user's phone, let's assume we can pass it or fetch it,
-    // for now we'll put a placeholder or use agendamento.userId if it was passed with user data.
-    // In IndicaAi we don't have the phone directly on the Booking, but we can fetch it if needed.
-    // For now we'll prompt if we don't have it.
-    let phone = prompt("Digite o WhatsApp do cliente (Ex: 11999999999):");
+    let phone = clientPhone;
+
+    if (!phone) {
+      phone = prompt("Digite o WhatsApp do cliente (Ex: 11999999999):");
+    }
+
     if (!phone) return;
     
-    // Clean phone number
+    // Limpar o número de telefone
     phone = phone.replace(/\D/g, '');
+    if (!phone.startsWith('55') && phone.length <= 11) {
+      phone = `55${phone}`;
+    }
 
-    const template = localStorage.getItem(msgKey) || "Olá {cliente}, seu horário no dia {data} às {horario} está {servico}.";
+    const templates = settings?.whatsappTemplates || {};
+    const template = templates[msgKey as keyof typeof templates] ||
+      (msgKey === 'confirmacao' ? "Olá {cliente}, seu horário no dia {data} às {horario} está confirmado!" :
+       msgKey === 'lembrete' ? "Oi {cliente}, passando para lembrar da sua tattoo amanhã às {horario}!" :
+       "Olá {cliente}, como está a cicatrização da sua tattoo?");
     
-    // Extract variables
+    // Substituir variáveis
     let text = template
       .replace(/{cliente}/g, agendamento.userName || 'Cliente')
-      .replace(/{data}/g, format(new Date(`${agendamento.date}T${agendamento.time}`), 'dd/MM/yyyy'))
+      .replace(/{data}/g, format(new Date(`${agendamento.date}T12:00:00`), 'dd/MM/yyyy'))
       .replace(/{horario}/g, agendamento.time)
       .replace(/{servico}/g, agendamento.descricao_servico || 'tatuagem')
       .replace(/{profissional}/g, agendamento.artistId || 'nosso profissional');
 
-    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     setShowMsgSelector(false);
   };

@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="IndicaAi">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/IndicaAi_Beta.zip!/" />
+      <root url="jar://$PROJECT_DIR$/indica-ai.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

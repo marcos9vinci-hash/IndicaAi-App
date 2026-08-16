@@ -94,6 +94,24 @@ export interface StudioSettings {
   adminIds: string[];
   allowIndicatorBooking: boolean;
   allowArtistBooking: boolean;
+  whatsappTemplates?: {
+    confirmacao?: string;
+    lembrete?: string;
+    followup?: string;
+  };
+  automation?: {
+    evolutionBaseUrl: string;
+    evolutionApiKey: string;
+    evolutionInstance: string;
+    reminderValue: number;
+    reminderUnit: 'minutes' | 'hours' | 'days';
+    followUpValue: number;
+    followUpUnit: 'minutes' | 'hours' | 'days';
+    enabled: boolean;
+    confirmationEnabled?: boolean;
+    reminderEnabled?: boolean;
+    followUpEnabled?: boolean;
+  };
 }
 
 export interface StudioRule {
@@ -140,6 +158,7 @@ export interface Booking {
   id: string;
   userId: string;
   userName?: string;
+  userPhone?: string;
   artistId?: string;
   size: 'Pequena' | 'Média' | 'Grande';
   date: string;
@@ -158,6 +177,9 @@ export interface Booking {
   observacoes?: string;
   valor_estimado?: number;
   valor_sinal?: number;
+  confirmationSent?: boolean;
+  reminderSent?: boolean;
+  followUpSent?: boolean;
 }
 
 export interface Invite {

@@ -4,12 +4,14 @@ import { db } from '../lib/firebase';
 import { collection, query, getDocs, doc, updateDoc, increment, serverTimestamp, addDoc, where, getDoc, setDoc, orderBy } from 'firebase/firestore';
 import { UserProfile, TransactionType, OperationType, Booking, NotificationType, UserTier, BookingStatus, StudioSettings, CreditTransaction, InviteCode, StudioRule, Campaign, Artist } from '../types';
 import { handleFirestoreError } from '../lib/error-handler';
-import { Shield, Users, Calendar, Check, X, PlusCircle, CheckCircle, Settings, Clock, Ban, DollarSign, Edit2, BarChart3, Ticket, ScrollText, Trash2, Save, ToggleLeft, ToggleRight, Plus, Gift } from 'lucide-react';
+import { Shield, Users, Calendar, Check, X, PlusCircle, CheckCircle, Settings, Clock, Ban, DollarSign, Edit2, BarChart3, Ticket, ScrollText, Trash2, Save, ToggleLeft, ToggleRight, Plus, Gift, Send } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AdminDashboard from './AdminDashboard';
 import { creditService } from '../lib/creditService';
 import UnifiedCalendar from '../components/admin/UnifiedCalendar';
 import { AdminSettings } from '../components/admin/AdminSettings';
+import { format, subHours, addHours, isBefore, subDays } from 'date-fns';
+import { whatsappService } from '../lib/whatsappService';
 
 export default function Admin() {
   const { isAdmin } = useAuth();
@@ -50,10 +52,124 @@ export default function Admin() {
     maxSessionsPerDay: 5,
     adminIds: [],
     allowIndicatorBooking: true,
-    allowArtistBooking: true
+    allowArtistBooking: true,
+    automation: {
+      evolutionBaseUrl: 'https://p01--evolution--6n2dx6dsdlsf.code.run',
+      evolutionApiKey: '020F2F224360-40F7-B022-D17AB8E529E2',
+      evolutionInstance: 'wats',
+      reminderValue: 24,
+      reminderUnit: 'hours',
+      followUpValue: 7,
+      followUpUnit: 'days',
+      enabled: false,
+      confirmationEnabled: false,
+      reminderEnabled: false,
+      followUpEnabled: false
+    }
   });
 
   const [newBlock, setNewBlock] = useState({ date: '', start: '', end: '', label: '' });
+
+  const handleSendWhatsApp = (booking: Booking, type: 'confirmacao' | 'lembrete' | 'followup' = 'confirmacao') => {
+    let phone = booking.userPhone || users.find(u => u.uid === booking.userId)?.phone;
+    if (!phone) phone = prompt("Telefone não encontrado. Digite o WhatsApp (Ex: 11999999999):");
+    if (!phone) return;
+    phone = phone.replace(/\D/g, '');
+    if (!phone.startsWith('55') && phone.length <= 11) phone = `55${phone}`;
+    const templates = settings.whatsappTemplates || {};
+    const template = templates[type] || (type === 'confirmacao' ? "Olá {cliente}, seu agendamento está confirmado!" : type === 'lembrete' ? "Oi {cliente}, lembrando da sua tattoo amanhã!" : "Olá {cliente}, como está a cicatrização?");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(whatsappService.formatMessage(template, booking))}`, '_blank');
+  };
+
+  const runAutomationSync = async (currentBookings: Booking[]) => {
+    if (!settings.automation?.enabled) return;
+    const now = new Date();
+
+    const getMs = (value: number, unit: string) => {
+      const v = Number(value) || 0;
+      if (unit === 'minutes') return v * 60 * 1000;
+      if (unit === 'hours') return v * 60 * 60 * 1000;
+      if (unit === 'days') return v * 24 * 60 * 60 * 1000;
+      return v * 24 * 60 * 60 * 1000;
+    };
+
+    if (settings.automation?.reminderEnabled) {
+      const pending = currentBookings.filter(b => {
+        if (b.reminderSent || b.status === BookingStatus.REJECTED || b.status === BookingStatus.COMPLETED || b.status === BookingStatus.NO_SHOW) return false;
+        const bookingDate = new Date(`${b.date.replace(/\//g, '-')}T${b.time.length === 5 ? b.time + ':00' : b.time}`);
+        const diff = bookingDate.getTime() - now.getTime();
+        return diff > 0 && diff <= getMs(settings.automation?.reminderValue || 24, settings.automation?.reminderUnit || 'hours');
+      });
+      for (const b of pending) {
+        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
+        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.lembrete || "", b), settings)) {
+          await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
+        }
+      }
+    }
+
+    if (settings.automation?.followUpEnabled) {
+      const pending = currentBookings.filter(b => {
+        if (b.followUpSent || b.status === BookingStatus.REJECTED || b.status === BookingStatus.NO_SHOW) return false;
+        const bookingDate = new Date(`${b.date.replace(/\//g, '-')}T${b.time.length === 5 ? b.time + ':00' : b.time}`);
+        if (isNaN(bookingDate.getTime())) return false;
+
+        const timeSinceBooking = now.getTime() - bookingDate.getTime();
+        const configMs = getMs(settings.automation?.followUpValue || 7, settings.automation?.followUpUnit || 'days');
+
+        // Adicionado margem de 1 minuto para compensar diferenças de relógio
+        return timeSinceBooking >= (configMs - 60000);
+      });
+      for (const b of pending) {
+        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
+        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.followup || "", b), settings)) {
+          await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
+        }
+      }
+    }
+
+    if (settings.automation?.confirmationEnabled) {
+      const pending = currentBookings.filter(b => {
+        if (b.confirmationSent || b.status === BookingStatus.REJECTED) return false;
+        const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
+        return (now.getTime() - createdAt.getTime()) < 600000;
+      });
+      for (const b of pending) {
+        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
+        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.confirmacao || "", b), settings)) {
+          await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
+        }
+      }
+    }
+  };
+
+  const fetchData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const fetchedUsers = usersSnap.docs.map(d => d.data() as UserProfile);
+      setUsers(fetchedUsers);
+
+      const bookingsSnap = await getDocs(collection(db, 'bookings'));
+      const fetchedBookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setBookings(fetchedBookings);
+
+      if (isAdmin && settings?.automation?.enabled) runAutomationSync(fetchedBookings);
+
+      const txsSnap = await getDocs(collection(db, 'transactions'));
+      setTransactions(txsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CreditTransaction)));
+      const invitesSnap = await getDocs(collection(db, 'invites'));
+      setInvites(invitesSnap.docs.map(d => ({ id: d.id, ...d.data() } as InviteCode)));
+      const rulesSnap = await getDocs(query(collection(db, 'studio_rules'), orderBy('order', 'asc')));
+      setRules(rulesSnap.docs.map(d => ({ id: d.id, ...d.data() } as StudioRule)));
+      const campaignsSnap = await getDocs(collection(db, 'campaigns'));
+      setCampaigns(campaignsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'admin/data');
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -62,154 +178,98 @@ export default function Admin() {
     }
   }, [isAdmin]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      setUsers(usersSnap.docs.map(d => d.data() as UserProfile));
-
-      const bookingsSnap = await getDocs(collection(db, 'bookings'));
-      setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)).sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis()));
-
-      const txsSnap = await getDocs(collection(db, 'transactions'));
-      setTransactions(txsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CreditTransaction)));
-
-      const invitesSnap = await getDocs(collection(db, 'invites'));
-      setInvites(invitesSnap.docs.map(d => ({ id: d.id, ...d.data() } as InviteCode)));
-
-      const rulesSnap = await getDocs(query(collection(db, 'studio_rules'), orderBy('order', 'asc')));
-      setRules(rulesSnap.docs.map(d => ({ id: d.id, ...d.data() } as StudioRule)));
-
-      const campaignsSnap = await getDocs(collection(db, 'campaigns'));
-      setCampaigns(campaignsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'admin/data');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    let interval: any;
+    if (isAdmin && settings?.automation?.enabled) {
+      interval = setInterval(() => fetchData(true), 30000);
     }
-  };
+    return () => clearInterval(interval);
+  }, [isAdmin, settings?.automation?.enabled]);
 
   const fetchSettings = async () => {
     try {
       const settingsSnap = await getDoc(doc(db, 'studio_settings', 'main'));
       if (settingsSnap.exists()) {
-        setSettings(settingsSnap.data() as StudioSettings);
+        const data = settingsSnap.data();
+        setSettings(prev => ({
+          ...prev, ...data,
+          automation: { ...prev.automation, ...(data.automation || {}) },
+          whatsappTemplates: { ...prev.whatsappTemplates, ...(data.whatsappTemplates || {}) }
+        }));
       }
-    } catch (err) {
-      console.error('Error fetching settings:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleUpdateSettings = async () => {
     try {
-      // Ensure durations exists for backward compatibility if fetching old data
       const finalSettings = {
         ...settings,
         durations: settings.durations || { Pequena: 60, Média: 120, Grande: 240 },
         blockedIntervals: settings.blockedIntervals || [],
         allowIndicatorBooking: settings.allowIndicatorBooking ?? true,
-        allowArtistBooking: settings.allowArtistBooking ?? true
+        allowArtistBooking: settings.allowArtistBooking ?? true,
+        whatsappTemplates: settings.whatsappTemplates || {},
+        automation: settings.automation || {}
       };
       await setDoc(doc(db, 'studio_settings', 'main'), finalSettings);
-      alert('Configurações salvas!');
-    } catch (err) {
-      console.error(err);
-    }
+      alert('Configurações salvas com sucesso!');
+    } catch (err) { alert('Erro ao salvar: ' + (err as any).message); }
+  };
+
+  const handleTestWhatsApp = async () => {
+    const phone = prompt("Digite um número com DDD (Ex: 11999998888):");
+    if (!phone) return;
+    alert("Iniciando teste...");
+    if (await whatsappService.sendMessage(phone, "🚀 Teste de Automação do IndicaAi!", settings)) alert("✅ Enviado!");
+    else alert("❌ Falha no envio.");
   };
 
   const handleAddBlock = () => {
     if (!newBlock.date || !newBlock.start || !newBlock.end) return;
-    const updatedBlocks = [...(settings.blockedIntervals || []), newBlock];
-    setSettings({ ...settings, blockedIntervals: updatedBlocks });
+    setSettings({ ...settings, blockedIntervals: [...(settings.blockedIntervals || []), newBlock] });
     setNewBlock({ date: '', start: '', end: '', label: '' });
   };
 
   const handleRemoveBlock = (index: number) => {
-    const updatedBlocks = settings.blockedIntervals.filter((_, i) => i !== index);
-    setSettings({ ...settings, blockedIntervals: updatedBlocks });
+    setSettings({ ...settings, blockedIntervals: settings.blockedIntervals.filter((_, i) => i !== index) });
   };
 
   const handleStatusChange = async (booking: Booking, nextStatus: BookingStatus, customData: any = {}) => {
     try {
-      await updateDoc(doc(db, 'bookings', booking.id), { 
+      const isReschedule = nextStatus === BookingStatus.RESCHEDULED;
+      const updateData: any = {
         status: nextStatus,
         ...customData
-      });
+      };
 
-      let title = '';
-      let message = '';
-
-      switch (nextStatus) {
-        case BookingStatus.APPROVED:
-          title = 'Agendamento Aprovado! ✅';
-          message = 'Seu agendamento foi aprovado pelo estúdio.';
-          break;
-        case BookingStatus.REJECTED:
-          title = 'Agendamento Recusado ❌';
-          message = 'Infelizmente seu agendamento não pôde ser aceito.';
-          break;
-        case BookingStatus.RESCHEDULED:
-          title = 'Horário Reagendado 🕒';
-          message = `Seu horário foi alterado para ${customData.date} às ${customData.time}.`;
-          break;
-        case BookingStatus.DEPOSIT_PAID:
-          title = 'Depósito Confirmado! 💸';
-          message = 'Recebemos o pagamento do seu sinal.';
-          break;
+      // Se for reagendamento, resetamos as travas de envio para disparar as mensagens novamente
+      if (isReschedule) {
+        updateData.confirmationSent = false;
+        updateData.reminderSent = false;
+        updateData.followUpSent = false;
       }
 
-      if (title) {
-        await addDoc(collection(db, 'notifications'), {
-          userId: booking.userId,
-          type: NotificationType.BOOKING_CONFIRMED,
-          title,
-          message,
-          createdAt: serverTimestamp(),
-          read: false
-        });
-      }
-
-      fetchData();
+      await updateDoc(doc(db, 'bookings', booking.id), updateData);
+      fetchData(true); // Atualização silenciosa
       setSelectedBooking(null);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleCompleteTattoo = async (booking: Booking) => {
     try {
-      // 1. Marcar como concluído
       await handleStatusChange(booking, BookingStatus.COMPLETED);
-
-      // 2. Dar bônus de 20 créditos (fixo) para QUEM fez a tattoo (recompensa direta)
       const userBonus = 20;
-      await updateDoc(doc(db, 'users', booking.userId), {
-        creditsBalance: increment(userBonus)
-      });
-      
+      await updateDoc(doc(db, 'users', booking.userId), { creditsBalance: increment(userBonus) });
       const sixMonthsFromNow = new Date();
       sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-
       await addDoc(collection(db, 'transactions'), {
-        userId: booking.userId,
-        amount: userBonus,
-        type: TransactionType.REFERRAL,
-        bookingId: booking.id,
-        description: 'Bônus por concluir sua tattoo!',
-        createdAt: serverTimestamp(),
-        expiresAt: sixMonthsFromNow
+        userId: booking.userId, amount: userBonus, type: TransactionType.REFERRAL,
+        bookingId: booking.id, description: 'Bônus por concluir sua tattoo!',
+        createdAt: serverTimestamp(), expiresAt: sixMonthsFromNow
       });
-
-      // 3. Processar bônus multinível para os indicadores (15%, 7%, 3%)
-      // Usamos o preço estimado da tattoo para o cálculo
-      const tattooPrice = booking.priceEstimated || 200; // fallback para 200
-      await creditService.processReferralBonus(booking.id, booking.userId, tattooPrice);
-
+      await creditService.processReferralBonus(booking.id, booking.userId, booking.priceEstimated || 200);
       fetchData();
-    } catch (err) {
-      console.error('Erro ao concluir tattoo:', err);
-      alert('Erro ao processar bônus: ' + (err as any).message);
-    }
+    } catch (err) { alert('Erro ao concluir: ' + (err as any).message); }
   };
 
   const handleAdjustCredits = async () => {
@@ -217,51 +277,22 @@ export default function Admin() {
     setAdjusting(true);
     try {
       const amount = parseInt(adjustAmount);
-      await updateDoc(doc(db, 'users', selectedUser.uid), {
-        creditsBalance: increment(amount)
-      });
+      await updateDoc(doc(db, 'users', selectedUser.uid), { creditsBalance: increment(amount) });
       await addDoc(collection(db, 'transactions'), {
-        userId: selectedUser.uid,
-        amount: amount,
-        type: TransactionType.ADMIN_ADJUSTMENT,
-        description: `Ajuste Admin: ${adjustDesc}`,
-        createdAt: serverTimestamp()
+        userId: selectedUser.uid, amount: amount, type: TransactionType.ADMIN_ADJUSTMENT,
+        description: `Ajuste Admin: ${adjustDesc}`, createdAt: serverTimestamp()
       });
-      await addDoc(collection(db, 'notifications'), {
-        userId: selectedUser.uid,
-        type: NotificationType.CREDIT_RECEIVED,
-        title: amount > 0 ? 'Créditos recebidos! 🎉' : 'Ajuste de créditos',
-        message: amount > 0 ? `Você recebeu R$ ${amount} em créditos.` : `Seu saldo foi ajustado em R$ ${Math.abs(amount)}.`,
-        createdAt: serverTimestamp(),
-        read: false
-      });
-      setSelectedUser(null);
-      setAdjustAmount('');
-      setAdjustDesc('');
+      setSelectedUser(null); setAdjustAmount(''); setAdjustDesc('');
       fetchData();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setAdjusting(false);
-    }
+    } catch (err) { console.error(err); } finally { setAdjusting(false); }
   };
 
   const handleUpdateRule = async (rule: Partial<StudioRule>) => {
     try {
-      if (rule.id) {
-        await updateDoc(doc(db, 'studio_rules', rule.id), rule as any);
-      } else {
-        await addDoc(collection(db, 'studio_rules'), {
-          ...rule,
-          active: true,
-          order: rules.length + 1
-        });
-      }
-      setEditingRule(null);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+      if (rule.id) await updateDoc(doc(db, 'studio_rules', rule.id), rule as any);
+      else await addDoc(collection(db, 'studio_rules'), { ...rule, active: true, order: rules.length + 1 });
+      setEditingRule(null); fetchData();
+    } catch (err) { console.error(err); }
   };
 
   const handleCreateInvite = async () => {
@@ -269,53 +300,31 @@ export default function Admin() {
     try {
       let expiresAt: any = null;
       if (newInvite.expiresInDays) {
-        const date = new Date();
-        date.setDate(date.getDate() + parseInt(newInvite.expiresInDays));
+        const date = new Date(); date.setDate(date.getDate() + parseInt(newInvite.expiresInDays));
         expiresAt = date;
       }
-
       await setDoc(doc(db, 'invites', newInvite.code.trim()), {
-        code: newInvite.code.trim(),
-        createdAt: serverTimestamp(),
-        expiresAt,
-        maxUses: newInvite.maxUses,
-        usesCount: 0,
-        createdByAdmin: true,
-        active: true
+        code: newInvite.code.trim(), createdAt: serverTimestamp(), expiresAt,
+        maxUses: newInvite.maxUses, usesCount: 0, createdByAdmin: true, active: true
       });
-      setNewInvite({ code: '', maxUses: 10, expiresInDays: '' });
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+      setNewInvite({ code: '', maxUses: 10, expiresInDays: '' }); fetchData();
+    } catch (err) { console.error(err); }
   };
 
   const toggleInvite = async (invite: InviteCode) => {
-    await updateDoc(doc(db, 'invites', invite.id), { active: !invite.active });
-    fetchData();
+    await updateDoc(doc(db, 'invites', invite.id), { active: !invite.active }); fetchData();
   };
 
   const handleUpdateCampaign = async (campaign: Partial<Campaign>) => {
     try {
-      if (campaign.id) {
-        await updateDoc(doc(db, 'campaigns', campaign.id), campaign as any);
-      } else {
-        await addDoc(collection(db, 'campaigns'), {
-          ...campaign,
-          active: true,
-          createdAt: serverTimestamp()
-        });
-      }
-      setEditingCampaign(null);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+      if (campaign.id) await updateDoc(doc(db, 'campaigns', campaign.id), campaign as any);
+      else await addDoc(collection(db, 'campaigns'), { ...campaign, active: true, createdAt: serverTimestamp() });
+      setEditingCampaign(null); fetchData();
+    } catch (err) { console.error(err); }
   };
 
   const toggleCampaign = async (campaign: Campaign) => {
-    await updateDoc(doc(db, 'campaigns', campaign.id), { active: !campaign.active });
-    fetchData();
+    await updateDoc(doc(db, 'campaigns', campaign.id), { active: !campaign.active }); fetchData();
   };
 
   const getStatusColor = (status: BookingStatus) => {
@@ -577,6 +586,7 @@ export default function Admin() {
                     // Ação ao selecionar data (opcional)
                   }}
                   onBookingCreated={fetchData}
+                  onEditBooking={(b) => setSelectedBooking(b)}
                 />
                 
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -590,12 +600,28 @@ export default function Admin() {
                             <Clock className="w-3 h-3" /> {b.date} • {b.time}
                           </p>
                         </div>
+                        <div className="flex items-center">
                         <span className={cn(
                           "text-[9px] font-headline uppercase tracking-tighter px-2.5 py-1 rounded-full border font-black",
                           getStatusColor(b.status)
                         )}>
                           {b.status.replace('_', ' ')}
                         </span>
+                        <button
+                          onClick={() => handleSendWhatsApp(b)}
+                          className="p-2 bg-green-600/20 text-green-400 rounded-lg border border-green-600/30 hover:bg-green-600/30 transition-all ml-2"
+                          title="Enviar Confirmação WhatsApp"
+                        >
+                          <Send className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedBooking(b)}
+                          className="p-2 bg-zinc-800 text-zinc-400 rounded-lg border border-white/5 hover:bg-zinc-700 transition-all ml-1"
+                          title="Editar Horário"
+                        >
+                          <Settings className="w-3 h-3" />
+                        </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 mb-4 text-[10px] uppercase font-headline tracking-widest font-black">
@@ -636,12 +662,12 @@ export default function Admin() {
                           </button>
                         )}
 
-                        {(b.status === BookingStatus.DEPOSIT_PAID || b.status === BookingStatus.RESCHEDULED) && (
+                        {(b.status === BookingStatus.DEPOSIT_PAID || b.status === BookingStatus.RESCHEDULED || b.status === BookingStatus.APPROVED) && (
                           <button 
                             onClick={() => handleCompleteTattoo(b)}
-                            className="flex-1 bg-primary-fixed text-black text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:opacity-90 font-black"
+                            className="flex-1 bg-primary-fixed text-black text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:opacity-90 font-black shadow-lg shadow-primary-fixed/20 animate-pulse"
                           >
-                            Concluir Tattoo
+                            ✅ Concluir Serviço
                           </button>
                         )}
 
@@ -681,13 +707,24 @@ export default function Admin() {
                         <p className="text-xs text-zinc-500">{u.phone} | {u.tier}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-primary-fixed font-headline font-black">R$ {u.creditsBalance}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-primary-fixed font-headline font-black">R$ {u.creditsBalance}</p>
+                        <button
+                          onClick={() => setSelectedUser(u)}
+                          className="text-zinc-600 hover:text-white transition-colors"
+                        >
+                          <PlusCircle className="w-5 h-5" />
+                        </button>
+                      </div>
                       <button 
-                        onClick={() => setSelectedUser(u)}
-                        className="text-zinc-600 hover:text-white transition-colors"
+                        onClick={() => {
+                          const phone = u.phone.replace(/\D/g, '');
+                          window.open(`https://wa.me/${phone.startsWith('55') ? phone : '55'+phone}`, '_blank');
+                        }}
+                        className="p-3 bg-green-600/20 text-green-400 rounded-xl border border-green-600/30 hover:bg-green-600/30 transition-all"
                       >
-                        <PlusCircle className="w-5 h-5" />
+                        <Send className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -704,6 +741,7 @@ export default function Admin() {
                 setNewBlock={setNewBlock}
                 handleAddBlock={handleAddBlock}
                 handleRemoveBlock={handleRemoveBlock}
+                onTestWhatsApp={handleTestWhatsApp}
               />
             )}
           </div>

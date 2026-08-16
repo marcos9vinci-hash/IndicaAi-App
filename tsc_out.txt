@@ -1,0 +1,71 @@
+src/components/admin/NovoAgendamentoWizard.tsx(98,67): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'File'.
+  Type '{}' is missing the following properties from type 'File': lastModified, name, webkitRelativePath, size, and 6 more.
+src/components/admin/NovoAgendamentoWizard.tsx(180,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(181,7): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(182,9): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(186,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(189,9): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(191,9): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(193,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(194,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(195,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(196,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(201,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(203,36): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(203,72): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(208,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(209,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(210,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(216,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(222,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(228,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(238,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(244,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(246,19): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(253,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(254,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(255,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(256,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(264,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(265,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(266,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(277,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(278,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(279,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(287,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(288,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(289,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(290,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(297,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(298,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(299,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(309,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(310,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(311,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(312,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(320,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(321,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(322,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(332,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(333,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(339,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(343,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(344,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(345,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(346,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(354,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(355,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(356,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(363,15): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(365,19): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(366,21): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(367,21): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(372,23): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/components/admin/NovoAgendamentoWizard.tsx(380,11): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
+src/lib/firebase.ts(5,34): error TS2732: Cannot find module '../../firebase-applet-config.json'. Consider using '--resolveJsonModule' to import module with '.json' extension.
+src/lib/firebase.ts(8,11): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.
+src/lib/firebase.ts(9,15): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.
+src/lib/firebase.ts(10,14): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.
+src/lib/firebase.ts(11,18): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.
+src/lib/firebase.ts(12,22): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.
+src/lib/firebase.ts(13,10): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', or 'nodenext'.

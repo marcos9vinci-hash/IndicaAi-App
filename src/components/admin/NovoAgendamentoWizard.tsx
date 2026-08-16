@@ -41,6 +41,16 @@ export default function NovoAgendamentoWizard({
   const [uploadingImg, setUploadingImg] = useState(false);
 
   useEffect(() => {
+    const fetchClientes = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'user'));
+        const snap = await getDocs(q);
+        setClientesLocais(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (error) {
+        console.error("Erro ao buscar clientes:", error);
+      }
+    };
+
     if (isOpen) {
       fetchClientes();
       const dateStr = initialDate ? initialDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -48,16 +58,6 @@ export default function NovoAgendamentoWizard({
       setForm(f => ({ ...f, data_agendamento: `${dateStr}T${timeStr}` }));
     }
   }, [isOpen, initialDate, initialTime]);
-
-  const fetchClientes = async () => {
-    try {
-      const q = query(collection(db, 'users'), where('role', '==', 'user'));
-      const snap = await getDocs(q);
-      setClientesLocais(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (error) {
-      console.error("Erro ao buscar clientes:", error);
-    }
-  };
 
   const handleChange = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -148,6 +148,7 @@ export default function NovoAgendamentoWizard({
       const payload = {
         userId: form.cliente_id,
         userName: selectedUser?.name || 'Cliente',
+        userPhone: selectedUser?.phone || '',
         artistId: form.profissional_id || 'admin',
         date: dataParte,
         time: horaParte,
@@ -166,9 +167,11 @@ export default function NovoAgendamentoWizard({
       };
 
       await addDoc(collection(db, 'bookings'), payload);
+      alert("Agendamento realizado com sucesso!");
       onSuccess();
     } catch (error) {
       console.error("Erro ao agendar:", error);
+      alert("Erro ao salvar agendamento: " + (error as any).message);
     } finally {
       setIsLoading(false);
     }
