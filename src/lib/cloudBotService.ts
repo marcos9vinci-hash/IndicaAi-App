@@ -21,9 +21,11 @@ export const cloudBotService = {
       });
 
       if (response.ok) {
-        console.log("✅ Robô acordado com sucesso!");
+        console.log("✅ Robô acordado!");
       } else {
-        console.error("❌ Falha ao acordar o robô:", await response.text());
+        const error = await response.text();
+        alert(`Erro ao acordar o robô (GitHub): ${response.status}. Verifique as permissões do seu Token.`);
+        console.error("❌ Erro:", error);
       }
     } catch (err) {
       console.error("❌ Erro na comunicação com o GitHub:", err);

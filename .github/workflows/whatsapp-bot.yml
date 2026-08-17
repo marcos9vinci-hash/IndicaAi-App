@@ -2,8 +2,8 @@ name: WhatsApp Automation Bot
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Backup a cada 30 min
-  repository_dispatch: # PERMITE DISPARO IMEDIATO PELO APP
+    - cron: '*/30 * * * *'
+  repository_dispatch:
     types: [trigger-whatsapp-bot]
   workflow_dispatch:
 
@@ -11,16 +11,16 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install Dependencies
-        run: npm install firebase
+      - name: Install
+        run: npm install firebase node-fetch # Instalando o fetch explicitamente
 
-      - name: Run WhatsApp Bot
+      - name: Run
         run: node bot-envio.js
