@@ -84,63 +84,20 @@ export default function Admin() {
 
   const runAutomationSync = async (currentBookings: Booking[]) => {
     if (!settings.automation?.enabled) return;
-    const now = new Date();
 
-    const getMs = (value: number, unit: string) => {
-      const v = Number(value) || 0;
-      if (unit === 'minutes') return v * 60 * 1000;
-      if (unit === 'hours') return v * 60 * 60 * 1000;
-      if (unit === 'days') return v * 24 * 60 * 60 * 1000;
-      return v * 24 * 60 * 60 * 1000;
-    };
+    // O Robô da Nuvem (GitHub Actions) agora é o responsável por todos os disparos automáticos.
+    // O App apenas "acorda" o robô quando necessário para garantir que o envio seja feito
+    // sem duplicidade e sem depender do App estar aberto.
 
-    if (settings.automation?.reminderEnabled) {
-      const pending = currentBookings.filter(b => {
-        if (b.reminderSent || b.status === BookingStatus.REJECTED || b.status === BookingStatus.COMPLETED || b.status === BookingStatus.NO_SHOW) return false;
-        const bookingDate = new Date(`${b.date.replace(/\//g, '-')}T${b.time.length === 5 ? b.time + ':00' : b.time}`);
-        const diff = bookingDate.getTime() - now.getTime();
-        return diff > 0 && diff <= getMs(settings.automation?.reminderValue || 24, settings.automation?.reminderUnit || 'hours');
-      });
-      for (const b of pending) {
-        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
-        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.lembrete || "", b), settings)) {
-          await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
-        }
-      }
-    }
+    // Verificamos se há algo novo que precise acordar o robô imediatamente
+    const hasPending = currentBookings.some(b =>
+      (!b.confirmationSent && (Date.now() - (b.createdAt?.toMillis?.() || 0) < 300000)) || // Novo nos últimos 5 min
+      (!b.reminderSent && b.status === BookingStatus.APPROVED) ||
+      (!b.followUpSent && b.status === BookingStatus.COMPLETED)
+    );
 
-    if (settings.automation?.followUpEnabled) {
-      const pending = currentBookings.filter(b => {
-        if (b.followUpSent || b.status === BookingStatus.REJECTED || b.status === BookingStatus.NO_SHOW) return false;
-        const bookingDate = new Date(`${b.date.replace(/\//g, '-')}T${b.time.length === 5 ? b.time + ':00' : b.time}`);
-        if (isNaN(bookingDate.getTime())) return false;
-
-        const timeSinceBooking = now.getTime() - bookingDate.getTime();
-        const configMs = getMs(settings.automation?.followUpValue || 7, settings.automation?.followUpUnit || 'days');
-
-        // Adicionado margem de 1 minuto para compensar diferenças de relógio
-        return timeSinceBooking >= (configMs - 60000);
-      });
-      for (const b of pending) {
-        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
-        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.followup || "", b), settings)) {
-          await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
-        }
-      }
-    }
-
-    if (settings.automation?.confirmationEnabled) {
-      const pending = currentBookings.filter(b => {
-        if (b.confirmationSent || b.status === BookingStatus.REJECTED) return false;
-        const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
-        return (now.getTime() - createdAt.getTime()) < 600000;
-      });
-      for (const b of pending) {
-        const phone = b.userPhone || users.find(u => u.uid === b.userId)?.phone;
-        if (phone && await whatsappService.sendMessage(phone, whatsappService.formatMessage(settings.whatsappTemplates?.confirmacao || "", b), settings)) {
-          await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
-        }
-      }
+    if (hasPending) {
+      cloudBotService.triggerBot();
     }
   };
 

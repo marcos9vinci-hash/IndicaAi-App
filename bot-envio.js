@@ -58,6 +58,18 @@ async function startBot() {
 
       const formattedPhone = phone.replace(/\D/g, '').startsWith('55') ? phone.replace(/\D/g, '') : `55${phone.replace(/\D/g, '')}`;
 
+      // --- LÓGICA DE CONFIRMAÇÃO ---
+      if (settings.automation.confirmationEnabled && !b.confirmationSent && b.status !== 'rejected') {
+        const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
+        const ageMs = now.getTime() - createdAt.getTime();
+        if (ageMs < 600000) { // Enviado se criado nos últimos 10 minutos
+          console.log(`✉️ Enviando CONFIRMAÇÃO para ${b.userName}...`);
+          const text = await formatMessage(settings.whatsappTemplates?.confirmacao || "Olá {cliente}, seu agendamento está confirmado!", b);
+          await send(evolutionBaseUrl, evolutionInstance, evolutionApiKey, formattedPhone, text);
+          await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
+        }
+      }
+
       // --- LÓGICA DE LEMBRETE ---
       if (settings.automation.reminderEnabled && !b.reminderSent && b.status !== 'rejected') {
         const diff = bookingDate.getTime() - now.getTime();
