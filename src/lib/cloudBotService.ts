@@ -11,7 +11,7 @@ export const cloudBotService = {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
         method: 'POST',
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `Bearer ${token}`, // Mudado para Bearer para mais estabilidade
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
@@ -21,14 +21,13 @@ export const cloudBotService = {
       });
 
       if (response.ok) {
-        console.log("✅ Robô acordado!");
+        console.log("✅ Robô notificado!");
       } else {
         const error = await response.text();
-        alert(`Erro ao acordar o robô (GitHub): ${response.status}. Verifique as permissões do seu Token.`);
-        console.error("❌ Erro:", error);
+        console.error("❌ Erro GitHub:", error);
       }
     } catch (err) {
-      console.error("❌ Erro na comunicação com o GitHub:", err);
+      console.error("❌ Erro conexão:", err);
     }
   }
 };
