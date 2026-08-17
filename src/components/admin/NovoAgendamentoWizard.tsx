@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase';
 import { collection, addDoc, getDocs, serverTimestamp, query, where } from 'firebase/firestore';
 import { cn } from '../../lib/utils';
 import { BookingStatus } from '../../types';
+import { cloudBotService } from '../../lib/cloudBotService';
 
 interface NovoAgendamentoWizardProps {
   isOpen: boolean;
@@ -168,6 +169,10 @@ export default function NovoAgendamentoWizard({
 
       await addDoc(collection(db, 'bookings'), payload);
       alert("Agendamento realizado com sucesso!");
+
+      // ACORDA O ROBÔ NA NUVEM NA HORA
+      cloudBotService.triggerBot();
+
       onSuccess();
     } catch (error) {
       console.error("Erro ao agendar:", error);

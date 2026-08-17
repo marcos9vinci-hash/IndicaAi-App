@@ -24,6 +24,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft } from 'lucide-react';
+import { cloudBotService } from '../lib/cloudBotService';
 
 type Size = 'Pequena' | 'Média' | 'Grande';
 
@@ -134,6 +135,10 @@ export default function Booking() {
       }
 
       await refreshProfile();
+
+      // ACORDA O ROBÔ PARA ENVIAR A CONFIRMAÇÃO PARA O CLIENTE
+      cloudBotService.triggerBot();
+
       navigate('/');
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'bookings');

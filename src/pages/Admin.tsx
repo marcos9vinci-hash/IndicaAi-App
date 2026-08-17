@@ -12,6 +12,7 @@ import UnifiedCalendar from '../components/admin/UnifiedCalendar';
 import { AdminSettings } from '../components/admin/AdminSettings';
 import { format, subHours, addHours, isBefore, subDays } from 'date-fns';
 import { whatsappService } from '../lib/whatsappService';
+import { cloudBotService } from '../lib/cloudBotService';
 
 export default function Admin() {
   const { isAdmin } = useAuth();
@@ -250,6 +251,10 @@ export default function Admin() {
       }
 
       await updateDoc(doc(db, 'bookings', booking.id), updateData);
+
+      // ACORDA O ROBÔ NA NUVEM PARA ENVIAR AS MUDANÇAS
+      cloudBotService.triggerBot();
+
       fetchData(true); // Atualização silenciosa
       setSelectedBooking(null);
     } catch (err) { console.error(err); }
