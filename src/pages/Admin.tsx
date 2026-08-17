@@ -50,13 +50,25 @@ export default function Admin() {
     }
   });
 
+  const runAutomationSync = async (currentBookings: Booking[]) => {
+    if (!settings.automation?.enabled) return;
+    const hasPending = currentBookings.some(b =>
+      (!b.confirmationSent && (Date.now() - (b.createdAt?.toMillis?.() || 0) < 300000)) ||
+      (!b.reminderSent && b.status === BookingStatus.APPROVED) ||
+      (!b.followUpSent && b.status === BookingStatus.COMPLETED)
+    );
+    if (hasPending) cloudBotService.triggerBot();
+  };
+
   const fetchData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
       setUsers(usersSnap.docs.map(d => d.data() as UserProfile));
       const bookingsSnap = await getDocs(collection(db, 'bookings'));
-      setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
+      const fetched = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setBookings(fetched);
+      if (isAdmin && settings?.automation?.enabled) runAutomationSync(fetched);
       const txsSnap = await getDocs(collection(db, 'transactions'));
       setTransactions(txsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CreditTransaction)));
       const invitesSnap = await getDocs(collection(db, 'invites'));
@@ -83,18 +95,10 @@ export default function Admin() {
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchData();
-      fetchSettings();
-    }
-  }, [isAdmin]);
-
+  useEffect(() => { if (isAdmin) { fetchData(); fetchSettings(); } }, [isAdmin]);
   useEffect(() => {
     let interval: any;
-    if (isAdmin && settings?.automation?.enabled) {
-      interval = setInterval(() => fetchData(true), 30000);
-    }
+    if (isAdmin && settings?.automation?.enabled) { interval = setInterval(() => fetchData(true), 30000); }
     return () => clearInterval(interval);
   }, [isAdmin, settings?.automation?.enabled]);
 
@@ -195,10 +199,7 @@ export default function Admin() {
     } catch (err) { console.error(err); }
   };
 
-  const toggleInvite = async (inv: InviteCode) => {
-    await updateDoc(doc(db, 'invites', inv.id), { active: !inv.active }); fetchData();
-  };
-
+  const toggleInvite = async (inv: InviteCode) => { await updateDoc(doc(db, 'invites', inv.id), { active: !inv.active }); fetchData(); };
   const handleUpdateCampaign = async (camp: Partial<Campaign>) => {
     try {
       if (camp.id) await updateDoc(doc(db, 'campaigns', camp.id), camp as any);
@@ -206,21 +207,13 @@ export default function Admin() {
       setEditingCampaign(null); fetchData();
     } catch (err) { console.error(err); }
   };
-
-  const toggleCampaign = async (camp: Campaign) => {
-    await updateDoc(doc(db, 'campaigns', camp.id), { active: !camp.active }); fetchData();
-  };
-
+  const toggleCampaign = async (camp: Campaign) => { await updateDoc(doc(db, 'campaigns', camp.id), { active: !camp.active }); fetchData(); };
   const handleAddBlock = () => {
     if (!newBlock.date || !newBlock.start || !newBlock.end) return;
     setSettings({ ...settings, blockedIntervals: [...(settings.blockedIntervals || []), newBlock] });
     setNewBlock({ date: '', start: '', end: '', label: '' });
   };
-
-  const handleRemoveBlock = (idx: number) => {
-    setSettings({ ...settings, blockedIntervals: settings.blockedIntervals.filter((_, i) => i !== idx) });
-  };
-
+  const handleRemoveBlock = (idx: number) => { setSettings({ ...settings, blockedIntervals: settings.blockedIntervals.filter((_, i) => i !== idx) }); };
   const handleTestWhatsApp = async () => {
     const ph = prompt("Número com DDD (Ex: 11999998888):");
     if (!ph) return;
@@ -351,7 +344,7 @@ export default function Admin() {
                         <div className="bg-white/[0.03] p-3 rounded-xl border border-white/5"><p className="text-zinc-600 mb-1">Sinal Pago</p><p className={b.depositPaid > 0 ? "text-primary-fixed" : "text-red-400"}>R$ {b.depositPaid}</p></div>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
-                        {b.status === BookingStatus.PENDING_APPROVAL && (<><button onClick={() => handleStatusChange(b, BookingStatus.APPROVED)} className="flex-1 bg-blue-600/20 text-blue-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-blue-600/30 hover:bg-blue-600/30 font-black">Aprovar</button><button onClick={() => handleStatusChange(b, BookingStatus.REJECTED)} className="flex-1 bg-red-600/20 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-red-600/30 hover:bg-red-600/30 font-black">Recusar</button></>)}
+                        {b.status === BookingStatus.PENDING_APPROVAL && (<><button onClick={() => handleStatusChange(b, BookingStatus.APPROVED)} className="flex-1 bg-blue-600/20 text-blue-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-blue-600/30 hover:bg-blue-600/30 font-black">Aprovar</button><button onClick={() => handleStatusChange(b, BookingStatus.REJECTED)} className="flex-1 bg-red-600/20 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-blue-600/30 hover:bg-blue-600/30 font-black">Recusar</button></>)}
                         {b.status === BookingStatus.APPROVED && (<button onClick={() => handleStatusChange(b, BookingStatus.DEPOSIT_PAID, { depositPaid: 80 })} className="flex-1 bg-primary-fixed/20 text-primary-fixed text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg border border-primary-fixed/30 hover:bg-primary-fixed/30 font-black">Confirmar Sinal (R$80)</button>)}
                         {(b.status === BookingStatus.DEPOSIT_PAID || b.status === BookingStatus.RESCHEDULED || b.status === BookingStatus.APPROVED) && (<button onClick={() => handleCompleteTattoo(b)} className="flex-1 bg-primary-fixed text-black text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:opacity-90 font-black shadow-lg shadow-primary-fixed/20 animate-pulse">✅ Concluir Serviço</button>)}
                         {b.status !== BookingStatus.COMPLETED && b.status !== BookingStatus.REJECTED && (<div className="flex gap-2 w-full mt-2"><button onClick={() => setSelectedBooking(b)} className="flex-1 bg-zinc-800 text-zinc-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700 font-black">Reagendar</button><button onClick={() => handleStatusChange(b, BookingStatus.NO_SHOW)} className="px-4 bg-zinc-800 text-red-400 text-[10px] font-headline uppercase tracking-widest py-2 rounded-lg hover:bg-zinc-700 font-black">No-Show</button></div>)}
