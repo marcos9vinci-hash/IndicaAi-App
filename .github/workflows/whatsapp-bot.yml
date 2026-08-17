@@ -20,7 +20,7 @@ jobs:
           node-version: 18
 
       - name: Install Dependencies
-        run: npm install firebase
+        run: npm install firebase node-fetch
 
       - name: Run WhatsApp Bot
         run: node bot-envio.js

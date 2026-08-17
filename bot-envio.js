@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, updateDoc, doc, query, where } from 'firebase/firestore';
+import fetch from 'node-fetch';
 
-// Configurações do Firebase (Puxadas do seu .env)
+// Configurações do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAhIXcG4ReuncxNBZSqjXYOu7Exka_TNo0",
   authDomain: "memorizeai-7b8fd.firebaseapp.com",
