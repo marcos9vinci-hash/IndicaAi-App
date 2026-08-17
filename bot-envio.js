@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import axios from 'axios';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAhIXcG4ReuncxNBZSqjXYOu7Exka_TNo0",
@@ -23,67 +24,68 @@ async function formatMessage(template, b) {
 }
 
 async function startBot() {
-  console.log("🚀 Inativando fila de WhatsApp...");
+  console.log("🚀 Iniciando Motor de Disparo IndicaAi...");
   try {
     const settingsSnap = await getDocs(collection(db, 'studio_settings'));
     const settings = settingsSnap.docs.find(d => d.id === 'main')?.data();
-    if (!settings?.automation?.enabled) return;
+    if (!settings?.automation?.enabled) {
+        console.log("🛑 Automação desativada.");
+        return;
+    }
 
     const { evolutionBaseUrl, evolutionApiKey, evolutionInstance } = settings.automation;
     const now = new Date();
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
 
+    console.log(`🔍 Analisando ${bookingsSnap.size} agendamentos...`);
+
     for (const d of bookingsSnap.docs) {
       const b = { id: d.id, ...d.data() };
-      const phone = b.userPhone;
-      if (!phone || b.status === 'rejected') continue;
-      const fullPhone = phone.replace(/\D/g, '').startsWith('55') ? phone.replace(/\D/g, '') : `55${phone.replace(/\D/g, '')}`;
+      if (!b.userPhone || b.status === 'rejected') continue;
+
+      const phone = b.userPhone.replace(/\D/g, '');
+      const fullPhone = phone.startsWith('55') ? phone : `55${phone}`;
 
       // 1. CONFIRMAÇÃO
       if (settings.automation.confirmationEnabled && !b.confirmationSent) {
-        const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
-        if ((now.getTime() - createdAt.getTime()) < 3600000) {
+          console.log(`✅ Enviando Confirmação para: ${b.userName}`);
           const msg = await formatMessage(settings.whatsappTemplates?.confirmacao, b);
-          await fetch(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': evolutionApiKey },
-            body: JSON.stringify({ number: fullPhone, text: msg })
-          });
+          await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`,
+            { number: fullPhone, text: msg },
+            { headers: { 'apikey': evolutionApiKey } }
+          );
           await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
-          console.log(`✅ Confirmado: ${b.userName}`);
-        }
       }
 
-      // 2. LEMBRETE / 3. FOLLOW-UP
+      // 2. LEMBRETE / 3. FOLLOW-UP (Lógica de tempo simplificada)
       const bookingDate = new Date(`${b.date}T${b.time}`);
       if (!isNaN(bookingDate.getTime())) {
-        // Lembrete
-        if (settings.automation.reminderEnabled && !b.reminderSent && b.status !== 'completed') {
-           const diff = bookingDate.getTime() - now.getTime();
-           const limit = (settings.automation.reminderValue || 24) * (settings.automation.reminderUnit === 'minutes' ? 60000 : settings.automation.reminderUnit === 'hours' ? 3600000 : 86400000);
-           if (diff > 0 && diff <= limit) {
-              const msg = await formatMessage(settings.whatsappTemplates?.lembrete, b);
-              await fetch(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': evolutionApiKey },
-                body: JSON.stringify({ number: fullPhone, text: msg })
-              });
-              await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
-           }
-        }
-        // Follow-up
-        if (settings.automation.followUpEnabled && !b.followUpSent) {
-           const diff = now.getTime() - bookingDate.getTime();
-           const limit = (settings.automation.followUpValue || 7) * (settings.automation.followUpUnit === 'minutes' ? 60000 : settings.automation.followUpUnit === 'hours' ? 3600000 : 86400000);
-           if (diff >= limit && diff < (limit + 86400000)) {
-              const msg = await formatMessage(settings.whatsappTemplates?.followup, b);
-              await fetch(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': evolutionApiKey },
-                body: JSON.stringify({ number: fullPhone, text: msg })
-              });
-              await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
-           }
-        }
+          // Lembrete
+          if (settings.automation.reminderEnabled && !b.reminderSent && b.status !== 'completed') {
+             const diff = bookingDate.getTime() - now.getTime();
+             const limit = (settings.automation.reminderValue || 24) * 3600000;
+             if (diff > 0 && diff <= limit) {
+                const msg = await formatMessage(settings.whatsappTemplates?.lembrete, b);
+                await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
+                await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
+             }
+          }
+          // Follow-up
+          if (settings.automation.followUpEnabled && !b.followUpSent) {
+             const diff = now.getTime() - bookingDate.getTime();
+             const limit = (settings.automation.followUpValue || 7) * 3600000;
+             if (diff >= limit && diff < (limit + 86400000)) {
+                const msg = await formatMessage(settings.whatsappTemplates?.followup, b);
+                await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
+                await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
+             }
+          }
       }
     }
-  } catch (e) { console.error(e); }
+    console.log("🏁 Fim do processamento.");
+  } catch (e) {
+    console.error("❌ ERRO:", e.response?.data || e.message);
+  }
 }
+
 startBot();

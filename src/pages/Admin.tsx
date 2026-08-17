@@ -52,12 +52,9 @@ export default function Admin() {
 
   const runAutomationSync = async (currentBookings: Booking[]) => {
     if (!settings.automation?.enabled) return;
-    const hasPending = currentBookings.some(b =>
-      (!b.confirmationSent && (Date.now() - (b.createdAt?.toMillis?.() || 0) < 300000)) ||
-      (!b.reminderSent && b.status === BookingStatus.APPROVED) ||
-      (!b.followUpSent && b.status === BookingStatus.COMPLETED)
-    );
-    if (hasPending) cloudBotService.triggerBot();
+
+    // Sempre que houver mudanças, o app avisa o robô.
+    cloudBotService.triggerBot();
   };
 
   const fetchData = async (isSilent = false) => {

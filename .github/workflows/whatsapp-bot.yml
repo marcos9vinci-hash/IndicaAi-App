@@ -20,7 +20,7 @@ jobs:
           node-version: 18
 
       - name: Install
-        run: npm install firebase node-fetch # Instalando o fetch explicitamente
+        run: npm install firebase axios # Axios adicionado aqui!
 
       - name: Run
         run: node bot-envio.js
