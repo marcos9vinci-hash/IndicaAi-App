@@ -3,7 +3,7 @@ export const cloudBotService = {
     // Configurações do seu repositório
     const owner = 'marcos9vinci-hash';
     const repo = 'IndicaAi-App';
-    const token = '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';
+    const token = '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';
 
     console.log("🚀 Notificando robô na nuvem para ação imediata...");
 
