@@ -11,7 +11,7 @@ export const cloudBotService = {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`, // Mudado para Bearer para mais estabilidade
+          'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
@@ -23,11 +23,13 @@ export const cloudBotService = {
       if (response.ok) {
         console.log("✅ Robô notificado!");
       } else {
-        const error = await response.text();
-        console.error("❌ Erro GitHub:", error);
+        const errorText = await response.text();
+        console.error("❌ Erro GitHub:", response.status, errorText);
+        alert(`Erro GitHub (${response.status}): ${errorText}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Erro conexão:", err);
+      alert(`Erro de Conexão com GitHub: ${err.message}`);
     }
   }
 };
