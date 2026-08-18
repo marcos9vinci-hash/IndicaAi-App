@@ -27,7 +27,10 @@ async function formatMessage(template, b) {
 async function startBot() {
   console.log("🤖 Iniciando Motor de Disparo IndicaAi...");
   try {
+    console.log("📡 Conectando ao Firestore...");
     const settingsSnap = await getDocs(collection(db, 'studio_settings'));
+    console.log("✅ Conectado ao Firestore.");
+
     const settings = settingsSnap.docs.find(d => d.id === 'main')?.data();
     if (!settings?.automation?.enabled) {
         console.log("🛑 Automação desativada.");
@@ -35,10 +38,12 @@ async function startBot() {
     }
 
     const { evolutionBaseUrl, evolutionApiKey, evolutionInstance } = settings.automation;
-    const now = new Date();
-    const bookingsSnap = await getDocs(collection(db, 'bookings'));
+    console.log(`🔗 Usando API: ${evolutionBaseUrl} | Instância: ${evolutionInstance}`);
 
-    console.log(`🔍 Analisando ${bookingsSnap.size} agendamentos...`);
+    const now = new Date();
+    console.log("📂 Buscando agendamentos...");
+    const bookingsSnap = await getDocs(collection(db, 'bookings'));
+    console.log(`📊 Analisando ${bookingsSnap.size} agendamentos...`);
 
     for (const d of bookingsSnap.docs) {
       const b = { id: d.id, ...d.data() };
