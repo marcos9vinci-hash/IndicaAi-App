@@ -11,16 +11,16 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20 # Usando a versão mais estável e moderna
 
-      - name: Install
-        run: npm install firebase axios # Axios adicionado aqui!
+      - name: Install Dependencies
+        run: npm install firebase axios
 
-      - name: Run
+      - name: Run WhatsApp Bot
         run: node bot-envio.js

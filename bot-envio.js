@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import axios from 'axios';
 
+// Configurações do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAhIXcG4ReuncxNBZSqjXYOu7Exka_TNo0",
   authDomain: "memorizeai-7b8fd.firebaseapp.com",
@@ -24,7 +25,7 @@ async function formatMessage(template, b) {
 }
 
 async function startBot() {
-  console.log("🚀 Iniciando Motor de Disparo IndicaAi...");
+  console.log("🤖 Iniciando Motor de Disparo IndicaAi...");
   try {
     const settingsSnap = await getDocs(collection(db, 'studio_settings'));
     const settings = settingsSnap.docs.find(d => d.id === 'main')?.data();
@@ -48,23 +49,29 @@ async function startBot() {
 
       // 1. CONFIRMAÇÃO
       if (settings.automation.confirmationEnabled && !b.confirmationSent) {
-          console.log(`✅ Enviando Confirmação para: ${b.userName}`);
-          const msg = await formatMessage(settings.whatsappTemplates?.confirmacao, b);
-          await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`,
-            { number: fullPhone, text: msg },
-            { headers: { 'apikey': evolutionApiKey } }
-          );
-          await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
+          const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
+          if ((now.getTime() - createdAt.getTime()) < 3600000) { // Janela de 1 hora
+            console.log(`✅ Enviando Confirmação para: ${b.userName}`);
+            const msg = await formatMessage(settings.whatsappTemplates?.confirmacao, b);
+            await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`,
+              { number: fullPhone, text: msg },
+              { headers: { 'apikey': evolutionApiKey } }
+            );
+            await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
+          }
       }
 
-      // 2. LEMBRETE / 3. FOLLOW-UP (Lógica de tempo simplificada)
+      // 2. LEMBRETE / 3. FOLLOW-UP
       const bookingDate = new Date(`${b.date}T${b.time}`);
       if (!isNaN(bookingDate.getTime())) {
           // Lembrete
-          if (settings.automation.reminderEnabled && !b.reminderSent && b.status !== 'completed') {
+          if (settings.automation.reminderEnabled && !b.reminderSent && b.status !== 'completed' && b.status !== 'no_show') {
              const diff = bookingDate.getTime() - now.getTime();
-             const limit = (settings.automation.reminderValue || 24) * 3600000;
+             const unitMs = settings.automation.reminderUnit === 'minutes' ? 60000 : settings.automation.reminderUnit === 'hours' ? 3600000 : 86400000;
+             const limit = (settings.automation.reminderValue || 24) * unitMs;
+
              if (diff > 0 && diff <= limit) {
+                console.log(`⏰ Enviando Lembrete para: ${b.userName}`);
                 const msg = await formatMessage(settings.whatsappTemplates?.lembrete, b);
                 await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
                 await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
@@ -73,8 +80,11 @@ async function startBot() {
           // Follow-up
           if (settings.automation.followUpEnabled && !b.followUpSent) {
              const diff = now.getTime() - bookingDate.getTime();
-             const limit = (settings.automation.followUpValue || 7) * 3600000;
+             const unitMs = settings.automation.followUpUnit === 'minutes' ? 60000 : settings.automation.followUpUnit === 'hours' ? 3600000 : 86400000;
+             const limit = (settings.automation.followUpValue || 7) * unitMs;
+
              if (diff >= limit && diff < (limit + 86400000)) {
+                console.log(`💬 Enviando Follow-up para: ${b.userName}`);
                 const msg = await formatMessage(settings.whatsappTemplates?.followup, b);
                 await axios.post(`${evolutionBaseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
                 await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
@@ -83,8 +93,10 @@ async function startBot() {
       }
     }
     console.log("🏁 Fim do processamento.");
+    process.exit(0);
   } catch (e) {
-    console.error("❌ ERRO:", e.response?.data || e.message);
+    console.error("❌ ERRO NO MOTOR:", e.message);
+    process.exit(1);
   }
 }
 
