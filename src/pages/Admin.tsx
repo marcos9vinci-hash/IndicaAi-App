@@ -65,7 +65,7 @@ export default function Admin() {
       const bookingsSnap = await getDocs(collection(db, 'bookings'));
       const fetched = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
       setBookings(fetched);
-      if (isAdmin && settings?.automation?.enabled) runAutomationSync(fetched);
+
       const txsSnap = await getDocs(collection(db, 'transactions'));
       setTransactions(txsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CreditTransaction)));
       const invitesSnap = await getDocs(collection(db, 'invites'));
