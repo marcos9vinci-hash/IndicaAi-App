@@ -5,6 +5,7 @@ import { collection, addDoc, getDocs, serverTimestamp, query, where } from 'fire
 import { cn } from '../../lib/utils';
 import { BookingStatus } from '../../types';
 import { cloudBotService } from '../../lib/cloudBotService';
+import { whatsappService } from '../../lib/whatsappService';
 
 interface NovoAgendamentoWizardProps {
   isOpen: boolean;
@@ -167,10 +168,24 @@ export default function NovoAgendamentoWizard({
         regiao_corpo: form.regiao_corpo
       };
 
-      await addDoc(collection(db, 'bookings'), payload);
+      const docRef = await addDoc(collection(db, 'bookings'), payload);
       alert("Agendamento realizado com sucesso!");
 
-      // ACORDA O ROBÔ NA NUVEM NA HORA
+      // 1. DISPARO DIRETO DO APP (Instantâneo, Gratuito e Confiável)
+      // Usamos os dados do usuário selecionado para o envio
+      if (selectedUser) {
+        whatsappService.sendBookingConfirmation({
+          id: docRef.id,
+          userName: selectedUser.name || 'Cliente',
+          userPhone: selectedUser.phone || '',
+          date: dataParte,
+          time: horaParte,
+          descricao_servico: form.descricao_servico,
+          artistId: form.profissional_id
+        });
+      }
+
+      // 2. DISPARO EM NUVEM (Backup)
       cloudBotService.triggerBot();
 
       onSuccess();

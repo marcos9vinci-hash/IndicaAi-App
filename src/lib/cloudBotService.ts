@@ -8,7 +8,7 @@ export const cloudBotService = {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
         method: 'POST',
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },

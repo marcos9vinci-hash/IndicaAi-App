@@ -136,6 +136,15 @@ export default function Admin() {
         updateData.followUpSent = false;
       }
       await updateDoc(doc(db, 'bookings', booking.id), updateData);
+      
+      if (isReschedule || nextStatus === BookingStatus.APPROVED) {
+        whatsappService.sendBookingConfirmation({
+          ...booking,
+          ...customData,
+          status: nextStatus
+        }, settings);
+      }
+
       cloudBotService.triggerBot();
       fetchData(true);
       setSelectedBooking(null);

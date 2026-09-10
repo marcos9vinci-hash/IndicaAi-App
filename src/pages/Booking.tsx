@@ -25,6 +25,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft } from 'lucide-react';
 import { cloudBotService } from '../lib/cloudBotService';
+import { whatsappService } from '../lib/whatsappService';
 
 type Size = 'Pequena' | 'Média' | 'Grande';
 
@@ -136,7 +137,17 @@ export default function Booking() {
 
       await refreshProfile();
 
-      // ACORDA O ROBÔ PARA ENVIAR A CONFIRMAÇÃO PARA O CLIENTE
+      // 1. DISPARO DIRETO DO APP
+      whatsappService.sendBookingConfirmation({
+        id: bookingRef.id,
+        userName: profile.name,
+        userPhone: profile.phone,
+        date: dateStr,
+        time: selectedTime,
+        descricao_servico: `Tatuagem (${size})`
+      }, settings || undefined);
+
+      // 2. DISPARO EM NUVEM (Backup)
       cloudBotService.triggerBot();
 
       navigate('/');
