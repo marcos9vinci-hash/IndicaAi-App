@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, query, getDocs, doc, updateDoc, increment, serverTimestamp, addDoc, where, getDoc, setDoc, orderBy } from 'firebase/firestore';
 import { UserProfile, TransactionType, OperationType, Booking, NotificationType, UserTier, BookingStatus, StudioSettings, CreditTransaction, InviteCode, StudioRule, Campaign } from '../types';
 import { handleFirestoreError } from '../lib/error-handler';
-import { Shield, Users, Calendar, Clock, Ban, DollarSign, Edit2, BarChart3, Ticket, ScrollText, Trash2, ToggleLeft, ToggleRight, Plus, Gift, Send, Settings } from 'lucide-react';
+import { Shield, Users, Calendar, Clock, Ban, DollarSign, Edit2, BarChart3, Ticket, ScrollText, Trash2, ToggleLeft, ToggleRight, Plus, Gift, Send, Settings, Terminal } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AdminDashboard from './AdminDashboard';
 import { creditService } from '../lib/creditService';
@@ -21,8 +21,9 @@ export default function Admin() {
   const [invites, setInvites] = useState<InviteCode[]>([]);
   const [rules, setRules] = useState<StudioRule[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [automationLogs, setAutomationLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'bookings' | 'settings' | 'dashboard' | 'invites' | 'rules' | 'campaigns'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'users' | 'bookings' | 'settings' | 'dashboard' | 'invites' | 'rules' | 'campaigns' | 'logs'>('dashboard');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [editingRule, setEditingRule] = useState<Partial<StudioRule> | null>(null);
   const [newInvite, setNewInvite] = useState({ code: '', maxUses: 10, expiresInDays: '' });
@@ -74,6 +75,9 @@ export default function Admin() {
       setRules(rulesSnap.docs.map(d => ({ id: d.id, ...d.data() } as StudioRule)));
       const campaignsSnap = await getDocs(collection(db, 'campaigns'));
       setCampaigns(campaignsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
+
+      const logsSnap = await getDocs(query(collection(db, 'automation_logs'), orderBy('timestamp', 'desc'), limit(20)));
+      setAutomationLogs(logsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) { handleFirestoreError(err, OperationType.LIST, 'admin/data'); }
     finally { if (!isSilent) setLoading(false); }
   };
@@ -256,7 +260,8 @@ export default function Admin() {
             { id: 'invites', icon: Ticket, label: 'Convites' },
             { id: 'campaigns', icon: Gift, label: 'Campanhas' },
             { id: 'rules', icon: ScrollText, label: 'Regras' },
-            { id: 'settings', icon: Settings, label: 'Config' }
+            { id: 'settings', icon: Settings, label: 'Config' },
+            { id: 'logs', icon: Terminal, label: 'Logs' }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={cn("flex-none px-6 py-3 rounded-xl font-headline text-[10px] tracking-widest uppercase font-black transition-all border", activeTab === tab.id ? "bg-primary-fixed text-black border-primary-fixed shadow-lg" : "text-zinc-600 hover:text-zinc-300 border-white/5 bg-zinc-900")}>
               <tab.icon className="w-3.5 h-3.5 inline mr-1.5" />{tab.label}
@@ -371,6 +376,37 @@ export default function Admin() {
               </div>
             )}
             {activeTab === 'settings' && <AdminSettings settings={settings} setSettings={setSettings} handleUpdateSettings={handleUpdateSettings} newBlock={newBlock} setNewBlock={setNewBlock} handleAddBlock={handleAddBlock} handleRemoveBlock={handleRemoveBlock} onTestWhatsApp={handleTestWhatsApp} />}
+
+            {activeTab === 'logs' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-headline text-sm uppercase tracking-widest text-primary-fixed">Histórico do Robô na Nuvem</h3>
+                  <button onClick={() => fetchData(true)} className="text-[10px] text-zinc-500 uppercase font-headline hover:text-white">Atualizar</button>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-2xl overflow-hidden">
+                  {automationLogs.length > 0 ? (
+                    automationLogs.map((log) => (
+                      <div key={log.id} className="p-4 border-b border-white/5 flex gap-3 items-start hover:bg-white/[0.02]">
+                        <span className={cn(
+                          "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                          log.type === 'error' ? 'bg-red-500' : log.type === 'warn' ? 'bg-yellow-500' : 'bg-green-500'
+                        )} />
+                        <div>
+                          <p className={cn("text-xs font-headline leading-tight", log.type === 'error' ? 'text-red-400' : 'text-zinc-300')}>
+                            {log.message}
+                          </p>
+                          <p className="text-[8px] text-zinc-600 mt-1 uppercase font-headline">
+                             {log.timestamp?.toDate ? format(log.timestamp.toDate(), 'HH:mm:ss - dd/MM') : 'Agora'}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-10 text-center text-zinc-700 text-xs uppercase font-headline tracking-widest italic">Nenhum log registrado ainda.</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {selectedBooking && (

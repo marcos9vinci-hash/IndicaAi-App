@@ -1,5 +1,5 @@
 import { initializeApp, terminate } from 'firebase/app';
-import { getFirestore, collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import axios from 'axios';
 
 const firebaseConfig = {
@@ -11,85 +11,57 @@ const firebaseConfig = {
   appId: "1:287874618983:web:30718f0f4f5ad68cb4e6c2"
 };
 
-async function formatMessage(template, b) {
-  if (!template) return "";
-  return template.replace(/{cliente}/g, b.userName || 'Cliente')
-    .replace(/{data}/g, b.date ? b.date.split('-').reverse().join('/') : '')
-    .replace(/{horario}/g, b.time || '')
-    .replace(/{servico}/g, b.descricao_servico || 'tatuagem')
-    .replace(/{profissional}/g, b.artistId || 'nosso profissional');
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+async function logAutomation(msg, type = 'info') {
+  try {
+    await addDoc(collection(db, 'automation_logs'), {
+      message: msg,
+      type: type,
+      timestamp: serverTimestamp()
+    });
+    console.log(`[LOG]: ${msg}`);
+  } catch (e) { console.error("Erro ao logar:", e); }
 }
 
 async function startBot() {
-  console.log("🚀 Iniciando disparo Evolution API...");
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
+  await logAutomation("🤖 Robô na nuvem iniciado.");
   try {
     const settingsSnap = await getDocs(collection(db, 'studio_settings'));
     const settings = settingsSnap.docs.find(d => d.id === 'main')?.data();
-    if (!settings?.automation?.enabled) return;
+
+    if (!settings?.automation?.enabled) {
+      await logAutomation("🛑 Automação desativada nas configs.", "warn");
+      return;
+    }
 
     const { evolutionBaseUrl, evolutionApiKey, evolutionInstance } = settings.automation;
-    const now = new Date();
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
-
-    const baseUrl = evolutionBaseUrl.replace(/\/$/, '');
+    const now = new Date();
 
     for (const d of bookingsSnap.docs) {
+      const b = { id: d.id, ...d.data() };
+      if (!b.userPhone || b.confirmationSent || b.status === 'rejected') continue;
+
+      const phone = b.userPhone.replace(/\D/g, '');
+      const fullPhone = phone.startsWith('55') ? phone : `55${phone}`;
+
+      const msg = `✅ Olá ${b.userName}, seu agendamento está confirmado!`;
+      const url = `${evolutionBaseUrl.replace(/\/$/, '')}/message/sendText/${evolutionInstance}`;
+
       try {
-        const b = { id: d.id, ...d.data() };
-        if (!b.userPhone || b.status === 'rejected') continue;
-
-        const phoneClean = b.userPhone.replace(/\D/g, '');
-        const fullPhone = phoneClean.startsWith('55') ? phoneClean : `55${phoneClean}`;
-
-        // 1. CONFIRMAÇÃO
-        if (settings.automation.confirmationEnabled && !b.confirmationSent) {
-            const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || Date.now());
-            if ((now.getTime() - createdAt.getTime()) < 3600000) {
-              const msg = formatMessage(settings.whatsappTemplates?.confirmacao || "✅ Olá {cliente}, agendamento confirmado!", b);
-              await axios.post(`${baseUrl}/message/sendText/${evolutionInstance}`,
-                { number: fullPhone, text: msg },
-                { headers: { 'apikey': evolutionApiKey }, timeout: 8000 }
-              );
-              await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
-              console.log(`✅ Enviado Confirmação: ${b.userName}`);
-            }
-        }
-
-        // 2. LEMBRETE / 3. FOLLOW-UP (Lógica simplificada)
-        const bookingDate = new Date(`${b.date}T${b.time}`);
-        if (!isNaN(bookingDate.getTime())) {
-            // Lembrete
-            if (settings.automation.reminderEnabled && !b.reminderSent) {
-                const diff = bookingDate.getTime() - now.getTime();
-                const unitMs = settings.automation.reminderUnit === 'minutes' ? 60000 : settings.automation.reminderUnit === 'hours' ? 3600000 : 86400000;
-                if (diff > 0 && diff <= (settings.automation.reminderValue * unitMs)) {
-                    const msg = formatMessage(settings.whatsappTemplates?.lembrete || "Oi {cliente}, passando para lembrar!", b);
-                    await axios.post(`${baseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
-                    await updateDoc(doc(db, 'bookings', b.id), { reminderSent: true });
-                }
-            }
-            // Follow-up
-            if (settings.automation.followUpEnabled && !b.followUpSent) {
-                const diff = now.getTime() - bookingDate.getTime();
-                const unitMs = settings.automation.followUpUnit === 'minutes' ? 60000 : settings.automation.followUpUnit === 'hours' ? 3600000 : 86400000;
-                if (diff >= (settings.automation.followUpValue * unitMs) && diff < (settings.automation.followUpValue * unitMs + 86400000)) {
-                    const msg = formatMessage(settings.whatsappTemplates?.followup || "Olá {cliente}, como está a cicatrização?", b);
-                    await axios.post(`${baseUrl}/message/sendText/${evolutionInstance}`, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey } });
-                    await updateDoc(doc(db, 'bookings', b.id), { followUpSent: true });
-                }
-            }
-        }
-      } catch (itemErr) {
-        console.warn(`⚠️ Erro no item ${d.id}:`, itemErr.message);
+        await axios.post(url, { number: fullPhone, text: msg }, { headers: { 'apikey': evolutionApiKey }, timeout: 8000 });
+        await updateDoc(doc(db, 'bookings', b.id), { confirmationSent: true });
+        await logAutomation(`✅ Mensagem enviada para ${b.userName}`);
+      } catch (err) {
+        await logAutomation(`❌ Falha ao enviar para ${b.userName}: ${err.response?.data?.message || err.message}`, "error");
       }
     }
   } catch (e) {
-    console.error("❌ Erro geral:", e.message);
+    await logAutomation(`💥 Erro Crítico: ${e.message}`, "error");
   } finally {
-    try { await terminate(db); } catch (_) {}
+    await logAutomation("🏁 Robô finalizou a tarefa.");
     process.exit(0);
   }
 }
